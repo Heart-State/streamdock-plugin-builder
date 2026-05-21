@@ -1,56 +1,56 @@
-# 架构与通信模型
+# Architecture and Communication Model
 
-## 一个插件是什么
+## What a plugin is
 
-一个 StreamDock 插件就是一个文件夹，名字必须形如
-`com.<vendor>.streamdock.<name>.sdPlugin`（反向域名、全小写、`.sdPlugin` 结尾）。
-软件从「插件目录」加载所有这样的文件夹。
+A StreamDock plugin is just a folder. Its name must look like
+`com.<vendor>.streamdock.<name>.sdPlugin` (reverse-DNS, all lowercase, ending
+in `.sdPlugin`). The app loads every such folder from its "plugins directory."
 
 ```
 com.acme.streamdock.timer.sdPlugin/
-├── manifest.json              # 声明文件：插件/动作/平台/Node 版本
-├── en.json, zh_CN.json, ...   # 多语言文本（按系统语言加载）
-├── static/                    # 图标等静态资源
+├── manifest.json              # declaration: plugin / actions / platforms / Node version
+├── en.json, zh_CN.json, ...   # localized text (loaded by system language)
+├── static/                    # static assets such as icons
 │   └── App-logo.svg
-├── plugin/                    # ★ 后端：Node.js 子进程
-│   ├── index.js               #   入口（manifest.CodePath 指向它）
-│   ├── package.json           #   依赖与构建脚本
-│   ├── autofile.js            #   构建后自动安装脚本
-│   └── utils/plugin.js        #   SDK 封装（Plugins/Actions/log）
-└── propertyInspector/         # ★ 前端：动作配置界面（HTML）
-    ├── <action>/index.html    #   某个动作的设置页
+├── plugin/                    # ★ backend: Node.js child process
+│   ├── index.js               #   entry point (manifest.CodePath points here)
+│   ├── package.json           #   dependencies and build script
+│   ├── autofile.js            #   post-build auto-install script
+│   └── utils/plugin.js        #   SDK wrapper (Plugins/Actions/log)
+└── propertyInspector/         # ★ front-end: action settings UI (HTML)
+    ├── <action>/index.html    #   settings page for one action
     ├── <action>/index.js
-    └── utils/                 #   前端 SDK 封装 + 第三方库
-        ├── common.js          #   $ 选择器、防抖节流等
-        ├── action.js          #   WebSocket 封装、connectElgato* 入口
-        ├── axios.js           #   打包好的 axios（可选用于 HTTP）
-        └── bootstrap*.css     #   样式
+    └── utils/                 #   front-end SDK wrapper + third-party libs
+        ├── common.js          #   $ selector, debounce/throttle, etc.
+        ├── action.js          #   WebSocket wrapper, connectElgato* entry point
+        ├── axios.js           #   bundled axios (optional, for HTTP)
+        └── bootstrap*.css     #   styles
 ```
 
-## 三个角色
+## Three roles
 
-| 角色 | 形态 | 职责 |
-|------|------|------|
-| **StreamDock 软件** | 桌面程序 | 调度中心；启动插件进程、转发所有事件 |
-| **插件后端** | Node.js 子进程 | 业务逻辑；处理按键、改图标、调系统/网络 |
-| **Property Inspector (PI)** | 嵌入式浏览器里的 HTML 页 | 让用户配置某个动作的设置 |
+| Role | Form | Responsibility |
+|------|------|----------------|
+| **StreamDock app** | desktop program | dispatch hub; starts plugin processes, relays all events |
+| **Plugin backend** | Node.js child process | business logic; handles keys, changes icons, calls system/network |
+| **Property Inspector (PI)** | HTML page in an embedded browser | lets the user configure an action's settings |
 
-后端和 PI **不能直接通信**，所有消息都经软件中转
-（`sendToPlugin` / `sendToPropertyInspector`）。
+The backend and the PI **cannot talk directly**; every message is relayed by
+the app (`sendToPlugin` / `sendToPropertyInspector`).
 
-## 启动与注册（后端）
+## Launch and registration (backend)
 
-软件以子进程方式运行 `plugin/index.js`，通过命令行参数传入连接信息。
-关键参数（`process.argv` 下标）：
+The app runs `plugin/index.js` as a child process and passes connection info
+via command-line arguments. Key arguments (`process.argv` indices):
 
-| 下标 | 含义 |
-|------|------|
-| `argv[3]` | WebSocket 端口 |
-| `argv[5]` | 本插件的注册 UUID（用作注册握手的 uuid，也用作 `context`） |
-| `argv[7]` | 注册事件名（registerPlugin） |
-| `argv[9]` | info JSON 字符串，含 `application.language` 等 |
+| Index | Meaning |
+|-------|---------|
+| `argv[3]` | WebSocket port |
+| `argv[5]` | this plugin's registration UUID (used for the registration handshake and as `context`) |
+| `argv[7]` | registration event name (registerPlugin) |
+| `argv[9]` | info JSON string, contains `application.language` and more |
 
-模板的 `utils/plugin.js` 已封装好握手：
+The template's `utils/plugin.js` already wraps the handshake:
 
 ```js
 this.ws = new ws("ws://127.0.0.1:" + process.argv[3]);
@@ -58,56 +58,61 @@ this.ws.on('open', () =>
     this.ws.send(JSON.stringify({ uuid: process.argv[5], event: process.argv[7] })));
 ```
 
-注册成功后，软件就会把 `willAppear / keyDown / keyUp / ...` 等事件推过来。
+Once registered, the app starts pushing events such as
+`willAppear / keyDown / keyUp / ...`.
 
-## 启动与注册（Property Inspector）
+## Launch and registration (Property Inspector)
 
-PI 是一个普通 HTML 页。软件加载它后会调用全局函数：
+The PI is an ordinary HTML page. After loading it, the app calls a global
+function:
 
 ```js
 connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, inActionInfo)
 ```
 
-模板的 `utils/action.js` 已实现该函数：建立 WebSocket、注册、解析出
-`$uuid / $action / $context`，并把 `didReceiveSettings` 里的设置包装成可自动
-持久化的 `$settings` 代理对象。
+The template's `utils/action.js` already implements it: it opens the WebSocket,
+registers, parses out `$uuid / $action / $context`, and wraps the settings from
+`didReceiveSettings` into the auto-persisting `$settings` proxy object.
 
-> 函数名带 "Elgato" 是为了兼容 Elgato Stream Deck 生态，StreamDock 沿用同名。
+> The "Elgato" in the function name is for compatibility with the Elgato Stream
+> Deck ecosystem; StreamDock reuses the same name.
 
-## 事件驱动模型
+## Event-driven model
 
-一切都是事件。两个方向：
+Everything is an event. Two directions:
 
-- **软件 → 插件/PI**：`willAppear`、`keyUp`、`dialRotate`、`didReceiveSettings`…
-  （完整列表见 `events.md`）
-- **插件/PI → 软件**：`setImage`、`setTitle`、`setSettings`、`showOk`、`openUrl`…
+- **App → plugin/PI**: `willAppear`, `keyUp`, `dialRotate`,
+  `didReceiveSettings`… (full list in `events.md`)
+- **Plugin/PI → app**: `setImage`, `setTitle`, `setSettings`, `showOk`,
+  `openUrl`…
 
-消息都是 JSON，典型结构：
+Messages are JSON. Typical shape:
 
 ```json
 { "event": "keyUp",
   "action": "com.acme.streamdock.timer.start",
-  "context": "<按键实例唯一标识>",
+  "context": "<unique key-instance ID>",
   "payload": { "settings": {}, "coordinates": {"column":1,"row":2} } }
 ```
 
-## 三个核心标识，别搞混
+## Three core identifiers — don't mix them up
 
-| 标识 | 是什么 | 用途 |
-|------|--------|------|
-| **plugin UUID** | `manifest` 顶层不直接写，由文件夹名体现 | 插件身份 |
-| **action UUID** | `manifest.Actions[].UUID`，如 `com.acme.streamdock.timer.start` | 动作类型身份；事件路由靠它最后一段 |
-| **context** | 运行时由软件生成的不透明字符串 | 「设备上某一个具体按键实例」。同一动作拖到设备上 3 次 = 3 个 context |
+| Identifier | What it is | Used for |
+|------------|------------|----------|
+| **plugin UUID** | not written at the top of `manifest`; expressed by the folder name | plugin identity |
+| **action UUID** | `manifest.Actions[].UUID`, e.g. `com.acme.streamdock.timer.start` | action-type identity; its last segment routes events |
+| **context** | an opaque string generated by the app at runtime | "one concrete key instance on the device." Dragging the same action onto the device 3 times = 3 contexts |
 
-后端把每个 `context` 的设置存在 `Actions` 实例的 `this.data[context]` 里，
-所以「针对某个按键」操作时第一个参数永远是 `context`。
+The backend stores each `context`'s settings in the `Actions` instance's
+`this.data[context]`, which is why `context` is always the first argument when
+operating on a specific key.
 
-## SDK 封装层（模板已内置，通常不需要改）
+## SDK wrapper layer (bundled in the template, usually no need to change)
 
-| 文件 | 提供 |
-|------|------|
-| `plugin/utils/plugin.js` | `Plugins`（连接+发送方法）、`Actions`（动作+生命周期）、`log`（日志）、`EventEmitter` |
-| `propertyInspector/utils/action.js` | `connectElgatoStreamDeckSocket`、`WebSocket` 上的 `setTitle/setImage/sendToPlugin/...`、`$settings` 代理 |
-| `propertyInspector/utils/common.js` | `$()` DOM 选择器、`$.debounce/$.throttle`、`$emit` 事件总线 |
+| File | Provides |
+|------|----------|
+| `plugin/utils/plugin.js` | `Plugins` (connection + send methods), `Actions` (actions + lifecycle), `log` (logging), `EventEmitter` |
+| `propertyInspector/utils/action.js` | `connectElgatoStreamDeckSocket`, `setTitle/setImage/sendToPlugin/...` on `WebSocket`, the `$settings` proxy |
+| `propertyInspector/utils/common.js` | the `$()` DOM selector, `$.debounce/$.throttle`, the `$emit` event bus |
 
-API 细节见 `sdk-api.md`。
+API details: see `sdk-api.md`.

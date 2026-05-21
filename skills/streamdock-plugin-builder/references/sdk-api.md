@@ -1,45 +1,48 @@
-# SDK API 参考（模板内置封装）
+# SDK API reference (template-bundled wrapper)
 
-模板已内置一层封装，**通常不需要改这些文件**，照下面的用法写业务代码即可。
+The template bundles a wrapper layer. **You usually do not need to change those
+files** — just write business code against the usage shown below.
 
 ---
 
-## 后端：`plugin/utils/plugin.js`
+## Backend: `plugin/utils/plugin.js`
 
-`require('./utils/plugin')` 导出 4 个东西：
+`require('./utils/plugin')` exports 4 things:
 
 ```js
 const { Plugins, Actions, log, EventEmitter } = require('./utils/plugin');
 ```
 
-### Plugins 类
+### The Plugins class
 
-单例。`const plugin = new Plugins();` 会自动连上软件。
-（构造函数不接受参数；旧示例里写的 `new Plugins('xxx')` 中的参数会被忽略。）
+A singleton. `const plugin = new Plugins();` connects to the app automatically.
+(The constructor takes no arguments; an argument in old examples like
+`new Plugins('xxx')` is ignored.)
 
-**发送方法**（第一个参数多为 `context`）：
+**Send methods** (the first argument is usually `context`):
 
-| 方法 | 作用 |
-|------|------|
-| `plugin.setTitle(context, str, row=0, num=6)` | 设标题。`row>0` 时自动按 `num` 字/行折行，超出加 `..` |
-| `plugin.setImage(context, url)` | 设按键图标，`url` 为 base64 或 svg dataURL |
-| `plugin.setState(context, state)` | 切换多状态动作的状态（0,1,...） |
-| `plugin.setSettings(context, payload)` | 持久化该按键实例的数据 |
-| `plugin.showOk(context)` | 按键闪「✓」 |
-| `plugin.showAlert(context)` | 按键闪「⚠」 |
-| `plugin.setGlobalSettings(payload)` | 持久化全局数据 |
-| `plugin.getGlobalSettings()` | 请求全局数据（结果走 `didReceiveGlobalSettings`） |
-| `plugin.sendToPropertyInspector(payload)` | 给当前打开的 PI 发数据 |
-| `plugin.openUrl(url)` | 默认浏览器打开网址 |
+| Method | Purpose |
+|--------|---------|
+| `plugin.setTitle(context, str, row=0, num=6)` | set the title. When `row>0`, wraps automatically at `num` chars/line and appends `..` on overflow |
+| `plugin.setImage(context, url)` | set the key icon; `url` is a base64 or svg dataURL |
+| `plugin.setState(context, state)` | switch a multi-state action's state (0,1,...) |
+| `plugin.setSettings(context, payload)` | persist this key instance's data |
+| `plugin.showOk(context)` | flash a "✓" on the key |
+| `plugin.showAlert(context)` | flash a "⚠" on the key |
+| `plugin.setGlobalSettings(payload)` | persist global data |
+| `plugin.getGlobalSettings()` | request global data (result arrives via `didReceiveGlobalSettings`) |
+| `plugin.sendToPropertyInspector(payload)` | send data to the currently open PI |
+| `plugin.openUrl(url)` | open a URL in the default browser |
 
-**静态属性：**
+**Static properties:**
 
-| 属性 | 含义 |
-|------|------|
-| `Plugins.language` | 当前软件语言，如 `"zh_CN"` |
-| `Plugins.globalSettings` | 最近一次收到的全局设置 |
+| Property | Meaning |
+|----------|---------|
+| `Plugins.language` | the current app language, e.g. `"zh_CN"` |
+| `Plugins.globalSettings` | the most recently received global settings |
 
-**插件级事件**：直接往 `plugin` 上挂同名函数即可接收没有 `action` 字段的事件：
+**Plugin-level events**: attach a same-named function directly on `plugin` to
+receive events that have no `action` field:
 
 ```js
 plugin.didReceiveGlobalSettings = ({ payload: { settings } }) => { /* ... */ };
@@ -47,47 +50,53 @@ plugin.deviceDidConnect = (data) => { /* ... */ };
 plugin.systemDidWakeUp = (data) => { /* ... */ };
 ```
 
-### Actions 类
+### The Actions class
 
-代表一种动作（一类按键）。**挂在 `plugin` 上的属性名必须等于 action UUID 的最后一段。**
+Represents one action (one kind of key). **The property name it is attached to
+on `plugin` must equal the last segment of the action UUID.**
 
 ```js
-// UUID = com.acme.streamdock.timer.start  →  属性名 start
+// UUID = com.acme.streamdock.timer.start  →  property name start
 plugin.start = new Actions({
-    default: { /* settings 默认值 */ },
+    default: { /* default settings values */ },
     _willAppear({ context, payload }) {},
     keyUp({ context, payload }) {},
     // ...
 });
 ```
 
-**`this.data[context]`**：每个按键实例的设置。`_willAppear` 和
-`didReceiveSettings` 都会把它重置为 `default` 与收到的 `settings` 的合并结果
-（`{...default, ...settings}`）。
+**`this.data[context]`**: the settings of each key instance. Both `_willAppear`
+and `didReceiveSettings` reset it to the merge of `default` and the received
+`settings` (`{...default, ...settings}`).
 
-> 含义：`this.data[context]` 只存放**用户配置**。运行时的临时状态（定时器、
-> 倒计时剩余秒数等）请放在模块级变量里（如 `const timers = {}` 按 `context` 存），
-> 不要塞进 `this.data[context]`，否则收到 `didReceiveSettings` 时会被覆盖。
+> Meaning: `this.data[context]` holds **user configuration only**. Keep runtime
+> transient state (timers, remaining countdown seconds, etc.) in module-level
+> variables (e.g. `const timers = {}` keyed by `context`), not in
+> `this.data[context]` — otherwise it is overwritten when `didReceiveSettings`
+> arrives.
 
-**事件处理器命名规则（重要）：**
+**Event-handler naming rule (important):**
 
-| 用 `_` 前缀（SDK 拦截后再转发） | 用原名（直接转发） |
+| Use the `_` prefix (SDK intercepts, then forwards) | Use the bare name (forwarded directly) |
 |------|------|
 | `_willAppear` | `keyDown` `keyUp` |
 | `_willDisappear` | `dialDown` `dialUp` `dialRotate` `touchTap` |
 | `_didReceiveSettings` | `sendToPlugin` |
 | `_propertyInspectorDidAppear` | `propertyInspectorDidDisappear` `titleParametersDidChange` |
 
-原因：`Actions` 类自身定义了 `willAppear/willDisappear/didReceiveSettings/`
-`propertyInspectorDidAppear` 四个方法来维护 `this.data`。你**直接**定义同名方法会
-覆盖它们，导致 `this.data` 失效。所以这 4 个用 `_` 前缀版；其余事件用原名。
+Reason: the `Actions` class itself defines four methods —
+`willAppear/willDisappear/didReceiveSettings/propertyInspectorDidAppear` — to
+maintain `this.data`. Defining a method with one of those names **directly**
+overrides them and breaks `this.data`. So use the `_`-prefixed version for
+those 4, and the bare name for every other event.
 
-每个处理器收到的 `data` 形如 `{ event, action, context, payload }`，
-常用解构：`({ context, payload })`，`payload.settings` 是当前设置。
+The `data` each handler receives looks like
+`{ event, action, context, payload }`; the common destructuring is
+`({ context, payload })`, and `payload.settings` is the current settings.
 
 ### log
 
-`log4js` 日志器，写到 `plugin/log/<日期>.log`：
+A `log4js` logger that writes to `plugin/log/<date>.log`:
 
 ```js
 log.info('msg', obj);   log.error('err', e);   log.warn(...);
@@ -95,75 +104,77 @@ log.info('msg', obj);   log.error('err', e);   log.warn(...);
 
 ### EventEmitter
 
-简单发布订阅：`subscribe(event, fn)` / `unsubscribe(event, fn)` / `emit(event, data)`。
+A simple pub/sub: `subscribe(event, fn)` / `unsubscribe(event, fn)` /
+`emit(event, data)`.
 
 ---
 
-## 前端（Property Inspector）
+## Front-end (Property Inspector)
 
-PI 的 HTML 按固定顺序加载 `common.js → action.js → axios.js → index.js`。
-你只写 `index.js`（和 `index.html`）。
+The PI's HTML loads `common.js → action.js → axios.js → index.js` in that fixed
+order. You only write `index.js` (and `index.html`).
 
-### 全局变量（`action.js` 提供）
+### Global variables (provided by `action.js`)
 
-| 变量 | 含义 |
-|------|------|
-| `$websocket` | 与软件的 WebSocket |
-| `$uuid` | 本 PI 的 UUID |
-| `$action` | 所属动作的 UUID |
-| `$context` | 所配置按键实例的 context |
-| `$settings` | 设置代理对象，**赋值即自动持久化**（防抖） |
-| `$lang` | 当前语言的 Localization 对象 |
+| Variable | Meaning |
+|----------|---------|
+| `$websocket` | the WebSocket to the app |
+| `$uuid` | this PI's UUID |
+| `$action` | the UUID of the owning action |
+| `$context` | the context of the key instance being configured |
+| `$settings` | the settings proxy object — **assigning to it auto-persists** (debounced) |
+| `$lang` | the Localization object for the current language |
 
-### `$websocket` 上的方法（`action.js` 提供）
+### Methods on `$websocket` (provided by `action.js`)
 
-| 方法 | 作用 |
-|------|------|
-| `$websocket.sendToPlugin(payload)` | 给插件后端发数据 |
-| `$websocket.setTitle(str, row, num)` | 设按键标题 |
-| `$websocket.setImage(url)` | 设按键图标（会自动转 PNG） |
-| `$websocket.setState(state)` | 切换状态 |
-| `$websocket.openUrl(url)` | 打开网址 |
-| `$websocket.setGlobalSettings(payload)` / `getGlobalSettings()` | 全局设置 |
+| Method | Purpose |
+|--------|---------|
+| `$websocket.sendToPlugin(payload)` | send data to the plugin backend |
+| `$websocket.setTitle(str, row, num)` | set the key title |
+| `$websocket.setImage(url)` | set the key icon (converted to PNG automatically) |
+| `$websocket.setState(state)` | switch the state |
+| `$websocket.openUrl(url)` | open a URL |
+| `$websocket.setGlobalSettings(payload)` / `getGlobalSettings()` | global settings |
 
-### 持久化设置：`$settings`
+### Persisting settings: `$settings`
 
 ```js
-$settings.volume = 50;      // 自动保存（debounce），后端会收到 didReceiveSettings
+$settings.volume = 50;      // auto-saved (debounced); the backend receives didReceiveSettings
 ```
 
-不要直接 `$websocket.send` 存设置，用 `$settings` 即可。
+Do not store settings with a raw `$websocket.send` — just use `$settings`.
 
-### 接收事件：`$propEvent`
+### Receiving events: `$propEvent`
 
-在 `index.js` 里定义 `$propEvent` 对象，软件来的事件按 `event` 名路由进去：
+Define a `$propEvent` object in `index.js`; events from the app are routed into
+it by `event` name:
 
 ```js
 const $propEvent = {
-    didReceiveSettings({ settings }) { /* 回显到表单 */ },
+    didReceiveSettings({ settings }) { /* echo into the form */ },
     didReceiveGlobalSettings({ settings }) {},
-    sendToPropertyInspector(payload) { /* 后端发来的数据 */ }
+    sendToPropertyInspector(payload) { /* data from the backend */ }
 };
 ```
 
-### DOM 工具：`$()`（`common.js` 提供）
+### DOM helper: `$()` (provided by `common.js`)
 
 ```js
-$('#id')                 // 取单个元素（找不到会抛错），带 .on()/.attr() 方法
-$('.cls', true)          // 取多个，返回数组
+$('#id')                 // get a single element (throws if not found); has .on()/.attr() methods
+$('.cls', true)          // get many, returns an array
 $('#btn').on('click', fn)
 ```
 
-其它：`$.debounce(fn, delay)`、`$.throttle(fn, delay)`、事件总线 `$emit`
-（`$emit.on(name,fn)` / `$emit.send(name,data)`）。
+Also: `$.debounce(fn, delay)`, `$.throttle(fn, delay)`, and the `$emit` event
+bus (`$emit.on(name,fn)` / `$emit.send(name,data)`).
 
-### 文件选择
+### File picker
 
-`<input type="file" id="logo">` 被点击后，软件返回路径会触发
-`$emit.send('File-logo', 数据)`：
+When an `<input type="file" id="logo">` is clicked, the path returned by the
+app triggers `$emit.send('File-logo', data)`:
 
 ```js
-$emit.on('File-logo', (data) => { /* data 是选中文件信息 */ });
+$emit.on('File-logo', (data) => { /* data is the chosen-file info */ });
 ```
 
-`<input type="num">` 会被 `common.js` 自动限制为只能输入数字。
+An `<input type="num">` is automatically restricted to digits by `common.js`.

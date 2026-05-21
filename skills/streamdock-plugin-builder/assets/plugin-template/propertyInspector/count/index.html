@@ -9,11 +9,11 @@
 </head>
 
 <body>
-    <!-- PI 内容容器：必须有 class="sdpi-wrapper" -->
+    <!-- PI content container: must have class="sdpi-wrapper" -->
     <div class="sdpi-wrapper p-3">
         <div class="mb-3">
             <label class="form-label">Step</label>
-            <!-- type="num" 由 common.js 绑定为"仅允许数字" -->
+            <!-- type="num" is bound by common.js to "digits only" -->
             <input type="num" id="step" class="form-control" value="1">
         </div>
         <div class="mb-3">
@@ -23,7 +23,7 @@
         <button id="reset" class="btn btn-primary w-100">Reset</button>
     </div>
 
-    <!-- 加载顺序固定：common → action → axios → index -->
+    <!-- Fixed load order: common -> action -> axios -> index -->
     <script src="../utils/common.js"></script>
     <script src="../utils/action.js"></script>
     <script src="../utils/axios.js"></script>

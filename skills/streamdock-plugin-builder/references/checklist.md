@@ -1,60 +1,60 @@
-# 交付前自查清单
+# Pre-delivery self-check list
 
-完成插件后逐项核对。
+Go through this item by item after finishing the plugin.
 
-## 命名与结构
+## Naming and structure
 
-- [ ] 插件文件夹名为 `com.<vendor>.streamdock.<name>.sdPlugin`，全小写
-- [ ] `manifest.json` 是合法 JSON（无多余逗号、引号配对）
-- [ ] 每个 action 的 `UUID` 唯一，且以插件 ID 为前缀
-- [ ] 每个 `plugin.<x>` 的 `<x>` = 对应 action UUID 的最后一段
-- [ ] 每个有 PI 的 action：`PropertyInspectorPath` 指向真实存在的 HTML
-- [ ] PI 文件夹名与 UUID 最后一段一致
-- [ ] `static/` 里的图标文件真实存在，`manifest` 路径都能对上
+- [ ] The plugin folder is named `com.<vendor>.streamdock.<name>.sdPlugin`, all lowercase
+- [ ] `manifest.json` is valid JSON (no trailing commas, quotes paired)
+- [ ] Each action's `UUID` is unique and prefixed with the plugin ID
+- [ ] Each `plugin.<x>`'s `<x>` = the last segment of the matching action UUID
+- [ ] For every action with a PI: `PropertyInspectorPath` points to an HTML file that actually exists
+- [ ] The PI folder name matches the last UUID segment
+- [ ] The icon files in `static/` actually exist and every `manifest` path resolves
 
 ## manifest
 
-- [ ] `CodePathWin` / `CodePathMac`（或 `CodePath`）指向 `plugin/index.js`
-- [ ] `OS` 覆盖目标平台
-- [ ] `Software.MinimumVersion` 已设（用内置 Node 时 Windows ≥ 3.10.188.226）
-- [ ] 用内置 Node 则有 `Nodejs: { "Version": "20" }`
-- [ ] 每个 action 至少 1 个 `States`
+- [ ] `CodePathWin` / `CodePathMac` (or `CodePath`) points to `plugin/index.js`
+- [ ] `OS` covers the target platforms
+- [ ] `Software.MinimumVersion` is set (Windows ≥ 3.10.188.226 when using built-in Node)
+- [ ] When using built-in Node, `Nodejs: { "Version": "20" }` is present
+- [ ] Each action has at least 1 `States`
 
-## 后端 plugin/index.js
+## Backend plugin/index.js
 
-- [ ] 生命周期事件用 `_` 前缀（`_willAppear` 等），输入事件用原名（`keyUp` 等）
-- [ ] 用了 `setInterval` 的都在 `_willDisappear` 里清掉
-- [ ] 操作按键的 API 第一个参数是 `context`
-- [ ] 改了 `settings` 的地方调用了 `setSettings` 持久化
-- [ ] 异常有 `try/catch` 或错误回调，失败时 `showAlert`
-- [ ] 用 SVG 时只用 SVG Tiny 1.2 支持的特性；颜色用 `rgb()`/颜色名，不用 `#`
+- [ ] Lifecycle events use the `_` prefix (`_willAppear` etc.); input events use the bare name (`keyUp` etc.)
+- [ ] Every `setInterval` is cleared in `_willDisappear`
+- [ ] The first argument of key-operating APIs is `context`
+- [ ] Anywhere `settings` was changed, `setSettings` was called to persist it
+- [ ] Exceptions have `try/catch` or an error callback; `showAlert` on failure
+- [ ] SVG uses only SVG Tiny 1.2 features; colors use `rgb()`/color names, not `#`
 
 ## Property Inspector
 
-- [ ] 内容在 `<div class="sdpi-wrapper">` 内
-- [ ] 脚本顺序：`common.js → action.js → axios.js → index.js`
-- [ ] `$propEvent.didReceiveSettings` 把设置回显到了表单
-- [ ] 表单控件变化时写回了 `$settings`
-- [ ] `$local=true` 时所有语言文件 `Localization` 补全；否则设 `$local=false`
+- [ ] Content is inside `<div class="sdpi-wrapper">`
+- [ ] Script order: `common.js → action.js → axios.js → index.js`
+- [ ] `$propEvent.didReceiveSettings` echoes settings back into the form
+- [ ] Form controls write back to `$settings` on change
+- [ ] When `$local=true`, every language file's `Localization` is complete; otherwise `$local=false`
 
-## 语言文件
+## Language files
 
-- [ ] 11 个 `<lang>.json` 都在（缺失会导致对应语言系统下 PI 异常）
-- [ ] 每个语言文件里的 action key = 真实 action UUID
-- [ ] `en.json` 至少填好兜底文本
+- [ ] All 11 `<lang>.json` files are present (a missing one breaks the PI under that system language)
+- [ ] The action key in every language file = the real action UUID
+- [ ] `en.json` at least has fallback text filled in
 
-## 构建与运行
+## Build and run
 
-- [ ] `plugin/` 下 `npm install` 成功
-- [ ] `npm run build` 成功，生成了 `build/index.js`
-- [ ] 已重启 StreamDock 软件
-- [ ] 插件已出现在 StreamDock 软件的动作列表里
-- [ ] 拖到按键上，核心功能按需求工作
-- [ ] `plugin/log/` 里没有未处理异常
+- [ ] `npm install` in `plugin/` succeeded
+- [ ] `npm run build` succeeded and produced `build/index.js`
+- [ ] The StreamDock app has been restarted
+- [ ] The plugin appears in the StreamDock actions list
+- [ ] Dragged onto a key, the core feature works as required
+- [ ] No unhandled exceptions in `plugin/log/`
 
-## 交付物
+## Deliverables
 
-- [ ] 告知用户插件文件夹位置
-- [ ] **明确提醒用户：装好/更新插件后要重启 StreamDock 软件**
-- [ ] 若未能在本机构建/安装，附上 `build-and-debug.md` 的安装步骤（含 Win/Mac 路径）
-- [ ] 说明做了哪些默认假设（vendor 名、占位图标、单语言等）
+- [ ] Tell the user where the plugin folder is
+- [ ] **Explicitly remind the user: restart the StreamDock app after installing/updating the plugin**
+- [ ] If you could not build/install on this machine, include the install steps from `build-and-debug.md` (with the Win/Mac paths)
+- [ ] State which default assumptions you made (vendor name, placeholder icon, single language, etc.)

@@ -4,144 +4,163 @@ description: >-
   Use when the user wants to create, build, scaffold, or modify a StreamDock /
   Mirabox Stream Dock plugin — including manifest.json, the Node.js plugin
   backend, action handlers for keypad/dial/touchscreen buttons, or the Property
-  Inspector settings UI. Triggers on requests like "写一个 StreamDock 插件",
-  "做个流控台/Stream Dock 插件", "StreamDock plugin", or any text describing a
+  Inspector settings UI. Triggers on requests like "write a StreamDock plugin",
+  "make a Stream Dock plugin", "StreamDock plugin", or any text describing a
   button/dial behavior to run on a Stream Dock device.
 ---
 
-# StreamDock 插件开发
+# StreamDock Plugin Development
 
-## 用途
+## Purpose
 
-根据用户的**文字需求**，从内置模板出发，开发一个完整、可安装的 StreamDock
-（Mirabox Stream Dock）插件。
+Turn a user's **plain-text request** into a complete, installable StreamDock
+(Mirabox Stream Dock) plugin, starting from the bundled template.
 
-**核心心智模型：一个插件 = 一个文件夹 + 事件驱动。**
-StreamDock 软件把你的后端代码当作 Node.js 子进程拉起，双方通过本地
-WebSocket 收发 JSON 事件；用户配置界面（Property Inspector）是一个独立 HTML 页。
+**Core mental model: a plugin = one folder + event-driven messaging.**
+The StreamDock app launches your backend code as a Node.js child process; the
+two sides exchange JSON events over a local WebSocket. The user-facing settings
+UI (the Property Inspector) is a separate HTML page.
 
-## 适用
+## When to use
 
-**适用：** 用户想做一个按 Stream Dock 按键/旋钮触发某个行为的插件（运行程序、
-发命令、调 API、显示动态信息、控制音量等）。
+The user wants a plugin that triggers some behavior from a Stream Dock
+key/dial (run a program, send a command, call an API, show dynamic info,
+control volume, etc.).
 
-## 必读约定（最容易踩的坑）
+## Must-know conventions (the easiest mistakes)
 
-1. **插件 ID = 文件夹名**，必须形如 `com.<vendor>.streamdock.<name>.sdPlugin`，
-   全小写、反向域名。
-2. **`plugin.<x>` 里的 `x` 必须等于 action UUID 的最后一段。**
-   例：UUID `com.acme.streamdock.timer.start` → 后端写 `plugin.start = new Actions(...)`。
-   SDK 靠 `action.split('.').pop()` 路由事件，名字对不上 = 这个 action 收不到任何事件。
-3. **`context`** 是「设备上某一个按键实例」的唯一标识。`setImage / setTitle /
-   setSettings` 等几乎所有操作的第一个参数都是 `context`。
-4. **生命周期事件用 `_` 前缀**（`_willAppear / _willDisappear /
-   _didReceiveSettings / _propertyInspectorDidAppear`）；**输入事件用原名**
-   （`keyDown / keyUp / dialDown / dialUp / dialRotate / touchTap / sendToPlugin`）。
-   原因见 `references/sdk-api.md`。
-5. **后端依赖必须打包**：软件内置的 Node 没有 `ws / log4js`，发布前要用
-   `npm run build`（ncc 打包成单文件）。
+1. **Plugin ID = folder name.** It must look like
+   `com.<vendor>.streamdock.<name>.sdPlugin` — all lowercase, reverse-DNS.
+2. **The `x` in `plugin.<x>` must equal the last segment of the action UUID.**
+   Example: UUID `com.acme.streamdock.timer.start` → backend writes
+   `plugin.start = new Actions(...)`. The SDK routes events with
+   `action.split('.').pop()`; a name mismatch means that action receives no
+   events at all.
+3. **`context`** is the unique ID of "one key instance on the device." It is
+   the first argument of almost every operation (`setImage / setTitle /
+   setSettings`, etc.).
+4. **Lifecycle events use the `_` prefix** (`_willAppear / _willDisappear /
+   _didReceiveSettings / _propertyInspectorDidAppear`); **input events use the
+   bare name** (`keyDown / keyUp / dialDown / dialUp / dialRotate / touchTap /
+   sendToPlugin`). Reason: see `references/sdk-api.md`.
+5. **Backend dependencies must be bundled.** The app's built-in Node has no
+   `ws / log4js`; before shipping, run `npm run build` (ncc bundles to a single
+   file).
 
-## 开发流程（务必按顺序执行）
+## Development workflow (follow in order)
 
-### Step 1 — 厘清需求
+### Step 1 — Clarify requirements
 
-把用户的文字需求映射成插件能力。**先回答下面 6 个问题**，信息不足且影响实现时
-才向用户提问，能合理默认的就默认并说明：
+Map the user's plain-text request to plugin capabilities. **Answer the 6
+questions below first.** Only ask the user when information is missing AND
+affects implementation; otherwise pick a sensible default and state it.
 
-| 问题 | 影响 |
-|------|------|
-| 触发的硬件是什么？普通按键 / 旋钮(Knob) / 触摸屏 | `manifest` 的 `Controllers`、用哪些事件 |
-| 按下后做什么？运行程序 / 命令 / HTTP / 快捷键 / 开网页 | 后端 `keyUp` 逻辑 |
-| 按键上要显示什么？静态图标 / 动态数字 / 动态图 | 是否用 `setImage`/`setTitle`、是否要定时器 |
-| 用户需要配置什么？（会变成 Property Inspector 的表单） | PI 的表单项 + `settings` 字段 |
-| 需要几个 action（按键类型）？ | `manifest.Actions` 数组长度 |
-| 要不要多语言、要不要轮询/定时刷新？ | 语言文件、`setInterval` |
+| Question | What it drives |
+|----------|----------------|
+| What hardware triggers it? Standard key / dial (Knob) / touchscreen | `Controllers` in `manifest`, which events to use |
+| What happens on press? Run program / command / HTTP / hotkey / open URL | the backend `keyUp` logic |
+| What does the key display? Static icon / dynamic number / dynamic image | whether to use `setImage`/`setTitle`, whether a timer is needed |
+| What does the user configure? (becomes the Property Inspector form) | PI form fields + `settings` keys |
+| How many actions (key types) are needed? | length of the `manifest.Actions` array |
+| Localization? Polling / timed refresh? | language files, `setInterval` |
 
-详细的「需求 → 能力」对照见 `references/requirement-mapping.md`。
-常见场景的最小代码见 `references/recipes.md`。
+See `references/requirement-mapping.md` for the full "requirement → capability"
+decision table, and `references/recipes.md` for minimal code per common scenario.
 
-### Step 2 — 复制模板并命名
+### Step 2 — Copy the template and name it
 
-1. 把本 skill 的 `assets/plugin-template/` 整个复制到用户指定位置
-   （没指定就放当前工作目录）。
-2. 把复制出来的文件夹**重命名**为 `com.<vendor>.streamdock.<name>.sdPlugin`。
-3. 模板里需要**同步改名**的耦合点（漏改会导致 action 不工作）：
-   - `manifest.json`：`Name / Description / Category / Author / URL`、
-     每个 action 的 `UUID / Name / Tooltip`、`PropertyInspectorPath`
-   - `plugin/index.js`：`plugin.count` 的属性名 → 改成新 UUID 的最后一段
-   - `propertyInspector/count/` 文件夹名 → 改成同一个最后一段
-   - 所有 `<lang>.json`：把键 `com.example.streamdock.counter.count` 改成新 UUID
-   重命名清单见 `references/build-and-debug.md`。
+1. Copy this skill's `assets/plugin-template/` to the user's chosen location
+   (default: the current working directory).
+2. **Rename** the copied folder to `com.<vendor>.streamdock.<name>.sdPlugin`.
+3. Coupled spots in the template that must be **renamed together** (missing one
+   breaks the action):
+   - `manifest.json`: `Name / Description / Category / Author / URL`, each
+     action's `UUID / Name / Tooltip`, `PropertyInspectorPath`
+   - `plugin/index.js`: the `plugin.count` property name → the last segment of
+     the new UUID
+   - the `propertyInspector/count/` folder name → the same last segment
+   - every `<lang>.json`: change the key `com.example.streamdock.counter.count`
+     to the new UUID
+   See the rename checklist in `references/build-and-debug.md`.
 
-### Step 3 — 写 manifest.json
+### Step 3 — Write manifest.json
 
-按需求增删 `Actions`、设 `Controllers`、`States`、`Settings` 默认值、
-`Software.MinimumVersion`、`Nodejs.Version`。字段全集见 `references/manifest.md`。
+Add/remove `Actions` per the requirements; set `Controllers`, `States`,
+`Settings` defaults, `Software.MinimumVersion`, `Nodejs.Version`. Full field
+reference: `references/manifest.md`.
 
-### Step 4 — 写后端 `plugin/index.js`
+### Step 4 — Write the backend `plugin/index.js`
 
-为每个 action 写一个 `plugin.<x> = new Actions({...})`，实现需要的事件。
-可用 API（`setImage / setTitle / setState / setSettings / showOk / showAlert /
-openUrl ...`）见 `references/sdk-api.md`，事件与 payload 见 `references/events.md`。
+Write one `plugin.<x> = new Actions({...})` per action and implement the events
+you need. Available APIs (`setImage / setTitle / setState / setSettings /
+showOk / showAlert / openUrl ...`) are in `references/sdk-api.md`; events and
+payloads are in `references/events.md`.
 
-### Step 5 — 写 Property Inspector
+### Step 5 — Write the Property Inspector
 
-在 `propertyInspector/<x>/index.html` 放表单，`index.js` 里用 `$settings.xxx = ...`
-把表单值写回设置（自动持久化）。详见 `references/property-inspector.md`。
-**没有配置项就可以删掉 PI**：去掉 manifest 里的 `PropertyInspectorPath`。
+Put a form in `propertyInspector/<x>/index.html`; in `index.js` use
+`$settings.xxx = ...` to write form values back to settings (auto-persisted).
+See `references/property-inspector.md`. **If there is nothing to configure,
+drop the PI**: remove `PropertyInspectorPath` from the manifest.
 
-### Step 6 — 多语言（可选）
+### Step 6 — Localization (optional)
 
-软件按系统语言读取 `<lang>.json`。需要本地化插件/动作名时改对应文件；
-模板已含 11 个语言文件（`en`/`zh_CN` 已译，其余 9 个为英文兜底副本，
-缺文件会导致对应语言系统下 PI 异常，所以保留全部）。PI 界面文字自动翻译见
-`references/property-inspector.md` 的 `$local` 一节。
+The app loads `<lang>.json` by the system language. Edit the matching file when
+you need to localize the plugin/action names. The template ships 11 language
+files (`en`/`zh_CN` translated, the other 9 are English fallback copies; a
+missing file breaks the PI under that system language, so keep all of them).
+For automatic PI text translation, see the `$local` section of
+`references/property-inspector.md`.
 
-### Step 7 — 安装依赖、构建、安装
+### Step 7 — Install dependencies, build, install
 
 ```bash
-cd <插件文件夹>/plugin
+cd <plugin-folder>/plugin
 npm install
-npm run build      # ncc 打包 + autofile.js 自动复制到 StreamDock 插件目录
+npm run build      # ncc bundle + autofile.js auto-copies into the StreamDock plugins folder
 ```
 
-`autofile.js` 已同时支持 **Windows 和 macOS**，会按系统自动选择插件目录。
+`autofile.js` supports both **Windows and macOS** and picks the plugins folder
+automatically by OS.
 
-**构建/安装完成后，必须明确提醒用户重启 StreamDock 软件** —— 软件只有重启后
-才会加载或刷新插件。这一步要写进你给用户的交付说明里。
+**After build/install completes, you MUST explicitly remind the user to restart
+the StreamDock app** — it only loads or refreshes plugins on restart. Put this
+in the hand-off notes you give the user.
 
-无法构建（无 npm / 非目标机器）时，把整个 `.sdPlugin` 文件夹交付给用户，
-并附上 `references/build-and-debug.md` 的安装说明（含 Windows/macOS 插件目录）。
+If you cannot build (no npm / not the target machine), deliver the whole
+`.sdPlugin` folder to the user and include the install steps from
+`references/build-and-debug.md` (with the Windows/macOS plugins folders).
 
-### Step 8 — 调试与验证
+### Step 8 — Debug and verify
 
-重启 StreamDock 软件让它识别新插件；用 `references/build-and-debug.md` 的
-调试方法（`localhost:23519`、`plugin/log/` 日志）排错。
-交付前对照 `references/checklist.md` 自查。
+Restart the StreamDock app so it picks up the new plugin; debug with the
+methods in `references/build-and-debug.md` (`localhost:23519`, the
+`plugin/log/` log file). Self-check against `references/checklist.md` before
+delivery.
 
-## 参考文档索引
+## Reference index
 
-| 文件 | 内容 |
-|------|------|
-| `references/architecture.md` | 插件结构、进程/WebSocket 通信模型、注册握手 |
-| `references/manifest.md` | `manifest.json` 全字段参考 |
-| `references/events.md` | 收/发事件全集与 JSON payload |
-| `references/sdk-api.md` | 模板内置的 `Plugins/Actions/log` 与前端 API |
-| `references/property-inspector.md` | PI 开发：表单、设置持久化、文件选择、i18n |
-| `references/build-and-debug.md` | 命名/重命名清单、构建、安装路径、调试 |
-| `references/requirement-mapping.md` | 「用户需求 → 插件能力」决策表 |
-| `references/recipes.md` | 常见场景的最小可用代码片段 |
-| `references/checklist.md` | 交付前自查清单 |
+| File | Contents |
+|------|----------|
+| `references/architecture.md` | Plugin structure, process/WebSocket model, registration handshake |
+| `references/manifest.md` | Full `manifest.json` field reference |
+| `references/events.md` | All received/sent events with JSON payloads |
+| `references/sdk-api.md` | The bundled `Plugins/Actions/log` API and the front-end API |
+| `references/property-inspector.md` | PI development: forms, settings persistence, file picker, i18n |
+| `references/build-and-debug.md` | Naming/rename checklist, build, install paths, debugging |
+| `references/requirement-mapping.md` | "User requirement → plugin capability" decision table |
+| `references/recipes.md` | Minimal working code for common scenarios |
+| `references/checklist.md` | Pre-delivery self-check list |
 
-## 常见错误
+## Common mistakes
 
-| 错误 | 后果 / 修法 |
-|------|------|
-| `plugin.<x>` 名字与 UUID 最后一段不符 | action 收不到事件；改成一致 |
-| 直接定义 `willAppear` 而非 `_willAppear` | 覆盖 SDK 拦截器，`this.data` 失效 |
-| 忘了 `npm run build` 就发布 | 软件内置 Node 找不到 `ws`，插件起不来 |
-| `setImage` 传了不存在的图片路径 | 按键空白；用 SVG dataURL 或确认 `static/` 路径 |
-| SVG 用了 `#` 颜色 / 滤镜 / CSS 等高级特性 | 按键空白；StreamDock 只支持 SVG Tiny 1.2，见 `references/recipes.md` |
-| 忘了提醒用户重启 StreamDock | 插件不出现/不更新；构建后必须重启软件 |
-| PI 文字开了 `$local=true` 但语言文件缺 key | 界面显示 "undefined"；补全或设 `$local=false` |
-| 文件夹名不是 `com.*.sdPlugin` 格式 | 软件不识别插件 |
+| Mistake | Consequence / fix |
+|---------|-------------------|
+| `plugin.<x>` name ≠ last segment of the UUID | the action receives no events; make them match |
+| Defining `willAppear` instead of `_willAppear` | overrides the SDK interceptor, `this.data` stops working |
+| Shipping without `npm run build` | the app's built-in Node cannot find `ws`; the plugin fails to start |
+| `setImage` given a non-existent image path | blank key; use an SVG dataURL or verify the `static/` path |
+| SVG uses `#` colors / filters / CSS or other advanced features | blank key; StreamDock only supports SVG Tiny 1.2, see `references/recipes.md` |
+| Forgetting to tell the user to restart StreamDock | plugin does not appear / does not update; the app must be restarted after a build |
+| PI text has `$local=true` but a language file is missing keys | the UI shows "undefined"; fill in the keys or set `$local=false` |
+| Folder name is not in `com.*.sdPlugin` form | the app does not recognize the plugin |

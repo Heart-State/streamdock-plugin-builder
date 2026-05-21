@@ -1,21 +1,21 @@
-// 自动化安装脚本：把当前 .sdPlugin 目录复制到 StreamDock 的插件目录
-// 由 `npm run build` 在 ncc 打包后调用。
+// Auto-install script: copies the current .sdPlugin folder into the StreamDock
+// plugins directory. Invoked by `npm run build` after the ncc bundle step.
 const path = require('path');
 const os = require('os');
 const fs = require('fs-extra');
 
-console.log('开始执行自动化构建...');
+console.log('Starting automated build...');
 
-const parentDir = path.resolve(__dirname, '..');   // .sdPlugin 目录
-const PluginName = path.basename(parentDir);        // 文件夹名 = 插件 ID
+const parentDir = path.resolve(__dirname, '..');   // the .sdPlugin folder
+const PluginName = path.basename(parentDir);        // folder name = plugin ID
 
-// 插件安装目录（随操作系统不同）
+// Plugin install directory (varies by OS)
 const pluginsRoot = process.platform === 'darwin'
     ? path.join(os.homedir(), 'Library/Application Support/HotSpot/StreamDock/plugins')
     : path.join(process.env.APPDATA, 'HotSpot/StreamDock/plugins');
 const PluginPath = path.join(pluginsRoot, PluginName);
 
-// 复制时要排除的路径（开发态文件，不进入安装包）
+// Paths to exclude when copying (development-only files, not part of the package)
 const skip = [
     path.join('plugin', 'node_modules'),
     path.join('plugin', 'index.js'),
@@ -30,10 +30,10 @@ const skip = [
 ];
 
 try {
-    fs.removeSync(PluginPath);                      // 删除旧版本
+    fs.removeSync(PluginPath);                      // remove the old version
     fs.ensureDirSync(path.dirname(PluginPath));
 
-    // 复制整个 .sdPlugin 目录（排除开发态文件）
+    // Copy the whole .sdPlugin folder (excluding development-only files)
     fs.copySync(parentDir, PluginPath, {
         filter: (src) => {
             const rel = path.relative(parentDir, src);
@@ -41,13 +41,13 @@ try {
         }
     });
 
-    // 把 ncc 打包后的 build/index.js 放到安装包的 plugin/ 目录
+    // Put the ncc-bundled build/index.js into the package's plugin/ folder
     fs.copySync(path.join(__dirname, 'build'), path.join(PluginPath, 'plugin'));
 
-    console.log(`插件 "${PluginName}" 已安装到 "${PluginPath}"`);
-    console.log('构建成功 -------------');
+    console.log(`Plugin "${PluginName}" installed to "${PluginPath}"`);
+    console.log('Build succeeded -------------');
     console.log('');
-    console.log('⚠  请重启 StreamDock 软件，插件才会被加载/刷新。');
+    console.log('⚠  Please restart the StreamDock app so the plugin is loaded/refreshed.');
 } catch (err) {
-    console.error(`复制出错 "${PluginName}":`, err);
+    console.error(`Copy failed for "${PluginName}":`, err);
 }

@@ -1,22 +1,22 @@
 // ============================================================
-//  插件后端入口 —— 以 Node.js 子进程方式被 StreamDock 启动
-//  这是一个"点击计数器"示例。改造步骤见 SKILL.md。
+//  Plugin backend entry — launched by StreamDock as a Node.js child process.
+//  This is a "click counter" example. See SKILL.md for how to adapt it.
 // ============================================================
 const { Plugins, Actions, log } = require('./utils/plugin');
 
-// 创建插件实例（单例）。构造函数不接受参数。
+// Create the plugin instance (singleton). The constructor takes no arguments.
 const plugin = new Plugins();
 
-// ───────────────── 插件级事件（可选） ─────────────────
-// 收到全局设置（所有 action 实例共享、跨设备持久化的数据）
+// ───────────────── Plugin-level events (optional) ─────────────────
+// Global settings received (data shared by all action instances, persisted across devices).
 plugin.didReceiveGlobalSettings = ({ payload: { settings } }) => {
     log.info('didReceiveGlobalSettings', settings);
 };
 
-// ───────────────── 工具函数 ─────────────────
-// 把数字渲染成一张 SVG 图片，用作按键背景（无需打包图片资源）。
-// 注意：SVG 里不要用 # 十六进制颜色（# 会被 data URL 当作片段分隔符截断），
-// 用 rgb(...) 或颜色名（white/black 等）。
+// ───────────────── Helpers ─────────────────
+// Render a number into an SVG image used as the key background (no image files to bundle).
+// Note: do not use # hex colors in SVG (# is treated as a fragment separator by the
+// data URL and truncates it); use rgb(...) or color names (white/black, etc.).
 const renderCount = (n) => {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144">
         <rect width="144" height="144" fill="rgb(30,30,46)"/>
@@ -26,29 +26,30 @@ const renderCount = (n) => {
     return `data:image/svg+xml;charset=utf8,${svg}`;
 };
 
-// ───────────────── Action：计数器 ─────────────────
-// 关键约定：属性名（这里是 count）必须等于 action UUID 的最后一段。
-// action UUID = com.example.streamdock.counter.count  →  plugin.count
+// ───────────────── Action: counter ─────────────────
+// Key convention: the property name (here, count) must equal the last segment
+// of the action UUID. action UUID = com.example.streamdock.counter.count → plugin.count
 plugin.count = new Actions({
-    // settings 的默认值；按键首次出现时与持久化数据合并存入 this.data[context]
+    // Default settings values; merged with persisted data into this.data[context]
+    // when the key first appears.
     default: { count: 0, step: 1 },
 
-    // 按键出现在设备上：用当前计数初始化显示
+    // The key appears on the device: initialize the display with the current count.
     _willAppear({ context }) {
         const { count } = this.data[context];
         plugin.setImage(context, renderCount(count));
     },
 
-    // 按下并松开按键：计数 +step → 持久化 → 刷新显示
+    // Press and release the key: count += step → persist → refresh the display.
     keyUp({ context }) {
         const settings = this.data[context];
         settings.count += settings.step;
-        plugin.setSettings(context, settings);                // 持久化
+        plugin.setSettings(context, settings);                // persist
         plugin.setImage(context, renderCount(settings.count));
-        plugin.showOk(context);                               // 按键上闪一个对勾
+        plugin.showOk(context);                               // flash a checkmark on the key
     },
 
-    // 属性检查器(PI)通过 sendToPlugin 发来的消息（这里用于"重置"按钮）
+    // Message sent from the Property Inspector (PI) via sendToPlugin (here, the "reset" button).
     sendToPlugin({ context, payload }) {
         if (payload && payload.reset) {
             const settings = this.data[context];
@@ -58,13 +59,13 @@ plugin.count = new Actions({
         }
     },
 
-    // PI 修改 settings 后回传 didReceiveSettings：刷新显示
+    // The PI changed settings and sends back didReceiveSettings: refresh the display.
     _didReceiveSettings({ context }) {
         const { count } = this.data[context];
         plugin.setImage(context, renderCount(count));
     },
 
-    // 按键从设备移除：在这里清理定时器等资源
+    // The key is removed from the device: clean up timers and other resources here.
     _willDisappear({ context }) {
     }
 });

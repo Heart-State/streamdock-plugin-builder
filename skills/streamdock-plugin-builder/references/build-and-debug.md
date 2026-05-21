@@ -1,91 +1,102 @@
-# 命名、构建、安装、调试
+# Naming, building, installing, debugging
 
-## 一、命名规则
+## 1. Naming rules
 
-| 对象 | 规则 | 例 |
-|------|------|----|
-| 插件文件夹 | `com.<vendor>.streamdock.<name>.sdPlugin`，全小写 | `com.acme.streamdock.timer.sdPlugin` |
-| 插件 ID 前缀 | 文件夹名去掉 `.sdPlugin` | `com.acme.streamdock.timer` |
-| action UUID | 在插件 ID 后再加一段 | `com.acme.streamdock.timer.start` |
+| Thing | Rule | Example |
+|-------|------|---------|
+| plugin folder | `com.<vendor>.streamdock.<name>.sdPlugin`, all lowercase | `com.acme.streamdock.timer.sdPlugin` |
+| plugin ID prefix | the folder name without `.sdPlugin` | `com.acme.streamdock.timer` |
+| action UUID | one more segment after the plugin ID | `com.acme.streamdock.timer.start` |
 
-## 二、从模板改名清单（耦合点，漏一个都会出问题）
+## 2. Rename checklist from the template (coupled spots — missing one breaks things)
 
-复制 `assets/plugin-template/` 后，假设新插件 ID 为
-`com.acme.streamdock.timer`、动作 UUID 为 `com.acme.streamdock.timer.start`：
+After copying `assets/plugin-template/`, assume the new plugin ID is
+`com.acme.streamdock.timer` and the action UUID is
+`com.acme.streamdock.timer.start`:
 
-- [ ] 文件夹改名为 `com.acme.streamdock.timer.sdPlugin`
-- [ ] `manifest.json`：`Name / Description / Category / Author / URL`
-- [ ] `manifest.json`：动作的 `UUID` → `com.acme.streamdock.timer.start`
-- [ ] `manifest.json`：动作的 `Name / Tooltip`
-- [ ] `manifest.json`：动作的 `PropertyInspectorPath` → `propertyInspector/start/index.html`
-- [ ] `plugin/index.js`：`plugin.count` → `plugin.start`（= UUID 最后一段）
-- [ ] `plugin/package.json`：`name / author / description`（不改也能跑，仅为整洁）
-- [ ] PI 文件夹 `propertyInspector/count/` → `propertyInspector/start/`
-- [ ] 所有 `<lang>.json`：键 `com.example.streamdock.counter.count` → 新 UUID
-- [ ] 所有 `<lang>.json`：`Name / Description / Category`
-- [ ] 替换图标 `static/App-logo.svg`（128×128 png；可沿用占位图先跑通）
+- [ ] rename the folder to `com.acme.streamdock.timer.sdPlugin`
+- [ ] `manifest.json`: `Name / Description / Category / Author / URL`
+- [ ] `manifest.json`: the action's `UUID` → `com.acme.streamdock.timer.start`
+- [ ] `manifest.json`: the action's `Name / Tooltip`
+- [ ] `manifest.json`: the action's `PropertyInspectorPath` → `propertyInspector/start/index.html`
+- [ ] `plugin/index.js`: `plugin.count` → `plugin.start` (= the last UUID segment)
+- [ ] `plugin/package.json`: `name / author / description` (works without changing, just for tidiness)
+- [ ] the PI folder `propertyInspector/count/` → `propertyInspector/start/`
+- [ ] every `<lang>.json`: the key `com.example.streamdock.counter.count` → the new UUID
+- [ ] every `<lang>.json`: `Name / Description / Category`
+- [ ] replace the icon `static/App-logo.svg` (128×128; you can keep the placeholder to get it running first)
 
-> 多个动作时，每个动作都要有自己的 UUID、`plugin.<x>`、PI 文件夹、语言键。
+> With multiple actions, each action needs its own UUID, `plugin.<x>`, PI
+> folder, and language keys.
 
-## 三、安装依赖与构建
+## 3. Installing dependencies and building
 
-软件内置的 Node 没有 `ws / log4js`，**发布前必须打包**。
+The app's built-in Node has no `ws / log4js`, so **bundling before shipping is
+mandatory**.
 
 ```bash
-cd <插件文件夹>/plugin
-npm install        # 装 fs-extra log4js ws + 构建工具 @vercel/ncc
-npm run build      # = npx ncc 打包成单文件 + node autofile.js 自动安装
+cd <plugin-folder>/plugin
+npm install        # installs fs-extra log4js ws + the build tool @vercel/ncc
+npm run build      # = npx ncc bundle into a single file + node autofile.js auto-install
 ```
 
-`npm run build` 做两件事：
-1. `ncc` 把 `index.js` 和所有依赖打包成单个 `build/index.js`；
-2. `autofile.js` 把整个 `.sdPlugin` 文件夹（用打包结果替换 `plugin/`）复制到
-   StreamDock 的插件目录。
+`npm run build` does two things:
+1. `ncc` bundles `index.js` and all dependencies into a single `build/index.js`;
+2. `autofile.js` copies the whole `.sdPlugin` folder (with `plugin/` replaced by
+   the bundle) into the StreamDock plugins directory.
 
-> 国内网络装不上 ncc 时，可改用 `npm install --registry=https://registry.npmmirror.com`。
+> If `ncc` cannot be installed because of network issues, use
+> `npm install --registry=https://registry.npmmirror.com`.
 
-## 四、插件安装目录
+## 4. Plugin install directory
 
-| 系统 | 路径 |
-|------|------|
+| OS | Path |
+|----|------|
 | Windows | `%APPDATA%\HotSpot\StreamDock\plugins\` |
 | macOS | `~/Library/Application Support/HotSpot/StreamDock/plugins/` |
 
-`autofile.js` 已按系统自动选择。也可手动把 `.sdPlugin` 文件夹整个拷进去。
+`autofile.js` picks this automatically by OS. You can also copy the whole
+`.sdPlugin` folder in by hand.
 
-**不构建的开发模式**：在 `plugin/` 里 `npm install` 后，把整个 `.sdPlugin`
-文件夹（含 `plugin/node_modules`）手动拷到上面的目录——这样无需打包也能跑，
-但体积大，仅适合本机调试。
+**No-build development mode**: after `npm install` in `plugin/`, copy the whole
+`.sdPlugin` folder (including `plugin/node_modules`) into the directory above —
+this runs without bundling, but it is large and only suitable for local
+debugging.
 
-## 五、让软件识别插件
+## 5. Getting the app to recognize the plugin
 
-**每次构建 / 更新插件后，都要重启 StreamDock 软件**，它才会加载或刷新插件。
-（仅改了 Property Inspector 时不必重启，重开配置面板即可——见第六节。）
+**After every build / plugin update, restart the StreamDock app** — only then
+does it load or refresh plugins. (When you change only the Property Inspector,
+no restart is needed — just reopen the settings panel; see section 6.)
 
-`npm run build` 结束时 `autofile.js` 也会打印「请重启 StreamDock」提示。
-重启后插件出现在动作列表的 `Category` 分组下，拖到按键上即可使用。
+`autofile.js` also prints a "please restart StreamDock" notice when
+`npm run build` finishes. After restart, the plugin appears under its
+`Category` group in the actions list; drag it onto a key to use it.
 
-> 交付时务必把「重启 StreamDock」这一步明确写给用户，否则用户会以为插件没装上。
+> Always state the "restart StreamDock" step explicitly when handing off, or
+> the user will think the plugin failed to install.
 
-## 六、调试
+## 6. Debugging
 
-| 对象 | 方法 |
-|------|------|
-| 后端 `plugin/index.js` | 看日志文件 `plugin/log/<日期>.log`（`log.info/error` 输出）。也可在 `manifest.Nodejs.Debug` 填 `--inspect=127.0.0.1:3210` 后用 Chrome `chrome://inspect` 连 |
-| Property Inspector | 浏览器打开 `http://localhost:23519/`，里面能看到 PI 页面并用 DevTools 调试 |
+| Target | Method |
+|--------|--------|
+| backend `plugin/index.js` | read the log file `plugin/log/<date>.log` (`log.info/error` output). You can also put `--inspect=127.0.0.1:3210` in `manifest.Nodejs.Debug` and attach with Chrome `chrome://inspect` |
+| Property Inspector | open `http://localhost:23519/` in a browser — you can see the PI page there and debug it with DevTools |
 
-改动后：
-- 改了**后端**代码 → 重新 `npm run build`，并重启软件（或重新加载插件）。
-- 改了**PI** 代码 → 重新打开按键的配置面板即可，无需重启。
+After changes:
+- changed the **backend** code → rebuild with `npm run build` and restart the
+  app (or reload the plugin).
+- changed the **PI** code → just reopen the key's settings panel, no restart
+  needed.
 
-## 七、常见报错排查
+## 7. Common error troubleshooting
 
-| 现象 | 原因 / 排查 |
-|------|------|
-| 插件不出现在动作列表 | 文件夹名不符 `com.*.sdPlugin`；`manifest.json` 语法错；没重启软件 |
-| 动作能拖上去但毫无反应 | `plugin.<x>` 名字 ≠ UUID 最后一段；后端进程崩了，看 `log/` |
-| 后端启动即退出 | 没 `npm run build`，内置 Node 找不到 `ws/log4js`；看 `log/` 的 Uncaught Exception |
-| 按键空白 | `setImage` 路径/格式错；SVG 用了 `#` 颜色或 SVG Tiny 1.2 不支持的特性（见 `recipes.md`）；`States[].Image` 指向不存在的文件 |
-| 构建后插件没出现/没更新 | 没重启 StreamDock 软件 |
-| PI 一片空白或显示 "undefined" | `$local=true` 但语言文件缺 key；JS 报错（开 `localhost:23519` 看 Console） |
-| 改了代码没生效 | 后端忘了重新 build；插件目录里是旧副本 |
+| Symptom | Cause / check |
+|---------|---------------|
+| plugin does not appear in the actions list | folder name not in `com.*.sdPlugin` form; `manifest.json` syntax error; app not restarted |
+| the action drags on but does nothing | `plugin.<x>` name ≠ last UUID segment; the backend process crashed — check `log/` |
+| backend exits immediately on start | no `npm run build`, the built-in Node cannot find `ws/log4js`; check `log/` for an Uncaught Exception |
+| blank key | `setImage` path/format wrong; the SVG uses `#` colors or features unsupported by SVG Tiny 1.2 (see `recipes.md`); `States[].Image` points to a missing file |
+| plugin not appearing / not updating after a build | the StreamDock app was not restarted |
+| PI is blank or shows "undefined" | `$local=true` but a language file is missing keys; a JS error (open `localhost:23519` and check the Console) |
+| code changes have no effect | forgot to rebuild the backend; the plugins directory has an old copy |

@@ -1,9 +1,10 @@
-# 常见场景代码片段
+# Common-scenario code snippets
 
-下面每段都是 `plugin/index.js` 里某个 `plugin.<x> = new Actions({...})` 的内容。
-`<x>` 为 action UUID 的最后一段。需要 PI 的同时给出 PI 片段。
+Each snippet below is the body of one `plugin.<x> = new Actions({...})` in
+`plugin/index.js`. `<x>` is the last segment of the action UUID. A PI snippet
+is given where one is needed.
 
-公共头部：
+Common header:
 
 ```js
 const { Plugins, Actions, log } = require('./utils/plugin');
@@ -12,36 +13,43 @@ const plugin = new Plugins();
 
 ---
 
-## SVG 渲染限制（用 setImage 画 SVG 前必读）
+## SVG rendering limits (read before drawing SVG with setImage)
 
-StreamDock 的 SVG 渲染模块**只实现了 SVG Tiny 1.2 子集**，桌面浏览器能渲染的
-不少高级特性它不支持。SVG 写错了通常表现为**按键空白**。请遵守：
+StreamDock's SVG rendering module **only implements the SVG Tiny 1.2 subset**;
+it does not support many advanced features that desktop browsers render. A
+broken SVG usually shows up as a **blank key**. Follow these rules:
 
-**可以用：**
-- 基本图形：`rect` `circle` `ellipse` `line` `polyline` `polygon` `path`
-- 文本：`text` `tspan`（用通用字体名；复杂排版靠手动设 `x`/`y` 坐标）
-- 分组与变换：`g`、`transform`（`translate`/`scale`/`rotate`）
-- 纯色 `fill`/`stroke`、`opacity`/`fill-opacity`/`stroke-*`
-- `linearGradient` / `radialGradient` 渐变、内嵌 `<image>`
+**Allowed:**
+- Basic shapes: `rect` `circle` `ellipse` `line` `polyline` `polygon` `path`
+- Text: `text` `tspan` (use generic font names; do complex layout by setting
+  `x`/`y` coordinates manually)
+- Grouping and transforms: `g`, `transform` (`translate`/`scale`/`rotate`)
+- Solid `fill`/`stroke`, `opacity`/`fill-opacity`/`stroke-*`
+- `linearGradient` / `radialGradient` gradients, embedded `<image>`
 
-**不要用（不渲染或行为不可靠）：**
-- `<style>` 标签、CSS 选择器、`class` —— 样式一律写成**元素属性**
-- 滤镜 `<filter>`（高斯模糊、`drop-shadow` 阴影等）、`filter` 属性
-- `<mask>`、`<clipPath>`、`mix-blend-mode`
-- `<foreignObject>`、HTML 内容、`<script>`、CSS/SMIL 动画
-- `paint-order` 等 SVG 2 新特性、Web 字体、外部资源引用
+**Do not use (won't render or behaves unreliably):**
+- `<style>` tags, CSS selectors, `class` — write all styling as **element
+  attributes**
+- `<filter>` filters (Gaussian blur, `drop-shadow` shadows, etc.), the `filter`
+  attribute
+- `<mask>`, `<clipPath>`, `mix-blend-mode`
+- `<foreignObject>`, HTML content, `<script>`, CSS/SMIL animation
+- `paint-order` and other SVG 2 features, web fonts, external resource
+  references
 
-**颜色**：用 `rgb(...)` 或颜色名（`white`/`black`…），**不要用 `#` 十六进制**——
-`#` 会被 data URL 当作片段分隔符，把整段 SVG 截断。
+**Colors**: use `rgb(...)` or color names (`white`/`black`…), **not `#` hex** —
+`#` is treated as a fragment separator by the data URL and truncates the whole
+SVG.
 
-需要复杂视觉效果时，改在 Node 端用库生成 PNG（转 base64 dataURL 传给 `setImage`），
-不要依赖 SVG 滤镜。
+When you need complex visual effects, generate a PNG on the Node side with a
+library (convert it to a base64 dataURL for `setImage`) instead of relying on
+SVG filters.
 
 ---
 
-## 1. 按一下打开网页
+## 1. Open a web page on press
 
-PI 让用户填网址，存进 `settings.url`。
+The PI lets the user enter a URL, stored in `settings.url`.
 
 ```js
 plugin.open = new Actions({
@@ -52,7 +60,7 @@ plugin.open = new Actions({
 });
 ```
 
-PI `index.js`：
+PI `index.js`:
 
 ```js
 const $local = false, $back = false, $dom = { main: $('.sdpi-wrapper'), url: $('#url') };
@@ -65,7 +73,7 @@ $dom.url.on('change', () => { $settings.url = $dom.url.value; });
 
 ---
 
-## 2. 按一下运行命令 / 程序
+## 2. Run a command / program on press
 
 ```js
 const { exec } = require('child_process');
@@ -83,9 +91,10 @@ plugin.run = new Actions({
 
 ---
 
-## 3. 多状态开关（开/关切换）
+## 3. Multi-state switch (on/off toggle)
 
-`manifest` 里该动作配 2 个 `States`（`States[0]`=关，`States[1]`=开）。
+Configure 2 `States` for this action in the `manifest` (`States[0]` = off,
+`States[1]` = on).
 
 ```js
 plugin.toggle = new Actions({
@@ -98,18 +107,18 @@ plugin.toggle = new Actions({
         s.on = !s.on;
         plugin.setSettings(context, s);
         plugin.setState(context, s.on ? 1 : 0);
-        // 这里执行开/关对应的实际操作
+        // perform the actual on/off action here
     }
 });
 ```
 
 ---
 
-## 4. 实时时钟（定时刷新 + SVG）
+## 4. Live clock (timed refresh + SVG)
 
 ```js
 const timers = {};
-// SVG 里别用 # 十六进制颜色（# 会被 data URL 截断），用 rgb(...) 或颜色名。
+// Don't use # hex colors in SVG (# is truncated by the data URL); use rgb(...) or color names.
 const clockSvg = (t) => `data:image/svg+xml;charset=utf8,` +
     `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144">` +
     `<rect width="144" height="144" fill="black"/>` +
@@ -122,7 +131,7 @@ plugin.clock = new Actions({
         tick();
         timers[context] = setInterval(tick, 1000);
     },
-    _willDisappear({ context }) {           // 必须清定时器
+    _willDisappear({ context }) {           // must clear the timer
         clearInterval(timers[context]);
         delete timers[context];
     }
@@ -131,9 +140,9 @@ plugin.clock = new Actions({
 
 ---
 
-## 5. 旋钮调音量
+## 5. Volume dial
 
-`manifest` 里该动作 `Controllers: ["Knob"]`。
+`Controllers: ["Knob"]` for this action in the `manifest`.
 
 ```js
 plugin.volume = new Actions({
@@ -143,12 +152,12 @@ plugin.volume = new Actions({
     },
     dialRotate({ context, payload }) {
         const s = this.data[context];
-        s.value = Math.max(0, Math.min(100, s.value + payload.ticks)); // ticks 正负=方向
+        s.value = Math.max(0, Math.min(100, s.value + payload.ticks)); // sign of ticks = direction
         plugin.setSettings(context, s);
         plugin.setTitle(context, s.value + '%');
-        // 这里把 s.value 应用到实际音量
+        // apply s.value to the actual volume here
     },
-    dialDown({ context }) {                 // 按下旋钮：静音之类
+    dialDown({ context }) {                 // press the dial: mute, etc.
         plugin.setTitle(context, 'Mute');
     }
 });
@@ -156,7 +165,7 @@ plugin.volume = new Actions({
 
 ---
 
-## 6. 定时拉取 HTTP 数据并显示
+## 6. Periodically fetch HTTP data and display it
 
 ```js
 const timers = {};
@@ -179,13 +188,13 @@ plugin.weather = new Actions({
 });
 ```
 
-`fetch` 是 Node 20 内置，无需依赖。
+`fetch` is built into Node 20 — no dependency needed.
 
 ---
 
-## 7. 后端 ↔ PI 互发消息
+## 7. Messaging between the backend and the PI
 
-PI 点按钮通知后端：
+The PI clicks a button to notify the backend:
 
 ```js
 // PI index.js
@@ -193,7 +202,7 @@ $dom.btn.on('click', () => $websocket.sendToPlugin({ cmd: 'refresh' }));
 ```
 
 ```js
-// 后端
+// backend
 plugin.x = new Actions({
     sendToPlugin({ context, payload }) {
         if (payload.cmd === 'refresh') { /* ... */ }
@@ -201,28 +210,29 @@ plugin.x = new Actions({
 });
 ```
 
-后端推数据给 PI：
+The backend pushes data to the PI:
 
 ```js
-plugin.sendToPropertyInspector({ status: 'ok' });   // 发给当前打开的 PI
+plugin.sendToPropertyInspector({ status: 'ok' });   // sent to the currently open PI
 ```
 
 ```js
-// PI index.js 的 $propEvent
+// $propEvent in the PI index.js
 sendToPropertyInspector(payload) { console.log(payload.status); }
 ```
 
 ---
 
-## 8. 按一下开始 / 再按停止 + 实时刷新（计时器式）
+## 8. Press to start / press again to stop + live refresh (timer style)
 
-最常见的复合模式：按键既切换「运行/停止」，运行时还实时刷新显示。
-**运行态（剩余秒数、定时器句柄）放模块级 map，不要放进 settings**——否则收到
-`didReceiveSettings` 时会被覆盖。
+The most common composite pattern: a key both toggles "running/stopped" and
+refreshes its display live while running. **Keep runtime state (remaining
+seconds, timer handles) in module-level maps, not in settings** — otherwise it
+is overwritten when `didReceiveSettings` arrives.
 
 ```js
-const timers = {};                        // context -> setInterval 句柄
-const remain = {};                        // context -> 剩余秒数
+const timers = {};                        // context -> setInterval handle
+const remain = {};                        // context -> remaining seconds
 
 const mmss = (s) => {
     const m = String(Math.floor(s / 60)).padStart(2, '0');
@@ -234,36 +244,36 @@ const mmss = (s) => {
 };
 
 plugin.timer = new Actions({
-    default: { minutes: 25 },             // 只有用户配置项进 settings
+    default: { minutes: 25 },             // only user config goes into settings
     _willAppear({ context }) {
         remain[context] = this.data[context].minutes * 60;
         plugin.setImage(context, mmss(remain[context]));
     },
     keyUp({ context }) {
-        if (timers[context]) {            // 正在跑 → 停止并归零
+        if (timers[context]) {            // running → stop and reset
             clearInterval(timers[context]);
             delete timers[context];
             remain[context] = this.data[context].minutes * 60;
             plugin.setImage(context, mmss(remain[context]));
-        } else {                          // 没在跑 → 开始倒计时
+        } else {                          // stopped → start the countdown
             timers[context] = setInterval(() => {
                 remain[context]--;
                 plugin.setImage(context, mmss(Math.max(0, remain[context])));
-                if (remain[context] <= 0) {       // 倒计时结束
+                if (remain[context] <= 0) {       // countdown finished
                     clearInterval(timers[context]);
                     delete timers[context];
-                    plugin.showOk(context);       // 也可换图/提示
+                    plugin.showOk(context);       // could swap the image / notify instead
                 }
             }, 1000);
         }
     },
-    _didReceiveSettings({ context }) {    // PI 改了分钟数：未运行时刷新显示
+    _didReceiveSettings({ context }) {    // PI changed the minutes: refresh display while not running
         if (!timers[context]) {
             remain[context] = this.data[context].minutes * 60;
             plugin.setImage(context, mmss(remain[context]));
         }
     },
-    _willDisappear({ context }) {         // 必须清理，按 context 独立
+    _willDisappear({ context }) {         // must clean up, per context
         clearInterval(timers[context]);
         delete timers[context];
         delete remain[context];
@@ -273,11 +283,14 @@ plugin.timer = new Actions({
 
 ---
 
-## 要点回顾
+## Key takeaways
 
-- 每个 `Actions` 的属性名 = UUID 最后一段。
-- 操作具体按键时第一个参数永远是 `context`。
-- 用 `setInterval` 一定在 `_willDisappear` 里 `clearInterval`；定时器按 `context` 存。
-- 动态画面优先用 SVG dataURL；SVG 里用 `rgb(...)`/颜色名，**别用 `#` 十六进制**。
-- `settings` 只放用户配置；运行态（计时、剩余值）放模块级变量，别放 `settings`。
-- 改了 settings 要 `setSettings` 才会持久化。
+- Each `Actions` property name = the last segment of the UUID.
+- The first argument is always `context` when operating on a specific key.
+- Every `setInterval` must be `clearInterval`'d in `_willDisappear`; store
+  timers keyed by `context`.
+- Prefer SVG dataURLs for dynamic visuals; in SVG use `rgb(...)`/color names,
+  **not `#` hex**.
+- `settings` holds user config only; keep runtime state (timing, remaining
+  values) in module-level variables, not in `settings`.
+- Changed settings only persist if you call `setSettings`.

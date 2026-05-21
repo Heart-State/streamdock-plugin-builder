@@ -1,7 +1,8 @@
-# 强制文本文件用 LF 行尾（shell 脚本用 CRLF 会在 Linux/Mac 报 bad interpreter）
+# Force LF line endings for text files (a shell script with CRLF fails on
+# Linux/Mac with "bad interpreter").
 * text=auto eol=lf
 
-# 二进制文件不做行尾转换
+# Binary files: no line-ending conversion.
 *.png   binary
 *.woff  binary
 *.woff2 binary

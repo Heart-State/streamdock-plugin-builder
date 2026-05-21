@@ -1,83 +1,89 @@
-# manifest.json 字段参考
+# manifest.json field reference
 
-`manifest.json` 位于 `.sdPlugin` 文件夹根目录，声明插件元信息与所有动作。
+`manifest.json` sits at the root of the `.sdPlugin` folder and declares the
+plugin metadata and all actions.
 
-## 顶层字段
+## Top-level fields
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `SDKVersion` | Integer | 是 | 固定 `1` |
-| `Name` | String | 是 | 插件显示名 |
-| `Description` | String | 是 | 插件描述 |
-| `Author` | String | 是 | 作者 |
-| `Version` | String | 是 | 语义化版本，如 `"1.0.0"` |
-| `Icon` | String | 是 | 插件图标路径，128×128 png（不带扩展名也可） |
-| `Category` | String | 否 | 动作在软件里的分组名，默认 `Custom` |
-| `CategoryIcon` | String | 否 | 分组图标，48×48 |
-| `CodePathWin` | String | 是* | Windows 下后端入口，如 `plugin/index.js` |
-| `CodePathMac` | String | 是* | macOS 下后端入口 |
-| `CodePath` | String | 是* | 跨平台统一入口（与上面二选一组方式） |
-| `PropertyInspectorPath` | String | 否 | 全局默认 PI 路径（动作可各自覆盖） |
-| `URL` | String | 否 | 插件主页 |
-| `OS` | Array | 是 | 支持的平台，见下 |
-| `Software` | Object | 是 | StreamDock 软件最低版本 |
-| `Nodejs` | Object | 否 | 使用软件内置 Node 时声明，见下 |
-| `ApplicationsToMonitor` | Object | 否 | 要监听启动/退出的应用，见下 |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `SDKVersion` | Integer | yes | fixed at `1` |
+| `Name` | String | yes | plugin display name |
+| `Description` | String | yes | plugin description |
+| `Author` | String | yes | author |
+| `Version` | String | yes | semantic version, e.g. `"1.0.0"` |
+| `Icon` | String | yes | plugin icon path, 128×128 png (extension may be omitted) |
+| `Category` | String | no | the group name for actions in the app, default `Custom` |
+| `CategoryIcon` | String | no | group icon, 48×48 |
+| `CodePathWin` | String | yes* | backend entry on Windows, e.g. `plugin/index.js` |
+| `CodePathMac` | String | yes* | backend entry on macOS |
+| `CodePath` | String | yes* | unified cross-platform entry (alternative to the two above) |
+| `PropertyInspectorPath` | String | no | global default PI path (an action may override it) |
+| `URL` | String | no | plugin homepage |
+| `OS` | Array | yes | supported platforms, see below |
+| `Software` | Object | yes | minimum StreamDock app version |
+| `Nodejs` | Object | no | declare it when using the app's built-in Node, see below |
+| `ApplicationsToMonitor` | Object | no | apps whose launch/exit to monitor, see below |
 
-\* `CodePathWin`+`CodePathMac` 或单独 `CodePath`，至少要有能覆盖目标平台的一种。
+\* Either `CodePathWin`+`CodePathMac` or a single `CodePath`; you need at least
+one that covers the target platform.
 
-## Actions 数组
+## Actions array
 
-每个动作（一种按键类型）一个对象：
+One object per action (one key type):
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `UUID` | String | 是 | 动作唯一 ID，反向域名，如 `com.acme.streamdock.timer.start`。**最后一段决定后端属性名** |
-| `Name` | String | 是 | 动作在动作列表里的名字 |
-| `Icon` | String | 是 | 动作列表里的图标，40×40 |
-| `Tooltip` | String | 否 | 鼠标悬停提示 |
-| `States` | Array | 是 | 外观状态数组，见下；至少 1 个 |
-| `Controllers` | Array | 否 | 支持的控制器类型，默认 `["Keypad"]`，见下 |
-| `PropertyInspectorPath` | String | 否 | 该动作的配置页 HTML 路径 |
-| `Settings` | Object | 否 | settings 初始值（也可在后端 `default` 里给） |
-| `DisableAutomaticStates` | Boolean | 否 | `true` 时按键状态不随点击自动切换，由代码用 `setState` 控制 |
-| `UserTitleEnabled` | Boolean | 否 | 是否允许用户自定义标题，默认 `true` |
-| `SupportedInMultiActions` | Boolean | 否 | 是否能用于「多动作/操作流」，默认 `true` |
-| `VisibleInActionsList` | Boolean | 否 | 是否显示在动作列表，默认 `true` |
-| `OS` | Array | 否 | 该动作单独限定的平台 |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `UUID` | String | yes | unique action ID, reverse-DNS, e.g. `com.acme.streamdock.timer.start`. **The last segment determines the backend property name.** |
+| `Name` | String | yes | action name shown in the actions list |
+| `Icon` | String | yes | icon in the actions list, 40×40 |
+| `Tooltip` | String | no | hover tooltip |
+| `States` | Array | yes | appearance-state array, see below; at least 1 |
+| `Controllers` | Array | no | supported controller types, default `["Keypad"]`, see below |
+| `PropertyInspectorPath` | String | no | HTML path of this action's settings page |
+| `Settings` | Object | no | initial settings values (can also be given in the backend `default`) |
+| `DisableAutomaticStates` | Boolean | no | when `true`, the key state does not toggle automatically on press; control it in code with `setState` |
+| `UserTitleEnabled` | Boolean | no | whether the user may set a custom title, default `true` |
+| `SupportedInMultiActions` | Boolean | no | whether it can be used in "multi-actions / workflows", default `true` |
+| `VisibleInActionsList` | Boolean | no | whether it appears in the actions list, default `true` |
+| `OS` | Array | no | platforms this action alone is limited to |
 
-### Controllers 取值
+### Controllers values
 
-| 值 | 含义 |
-|----|------|
-| `"Keypad"` | 普通按键（默认） |
-| `"Knob"` 或 `"Encoder"` | 旋钮（可旋转/按下，部分设备带小屏） |
-| `"Information"` | 只读展示，不响应点击 |
-| `"SecondaryScreen"` | 副屏 |
+| Value | Meaning |
+|-------|---------|
+| `"Keypad"` | standard key (default) |
+| `"Knob"` or `"Encoder"` | dial (rotate/press; some devices have a small screen) |
+| `"Information"` | read-only display, does not respond to presses |
+| `"SecondaryScreen"` | secondary screen |
 
-旋钮动作要用 `dialDown / dialUp / dialRotate / touchTap` 事件（见 `events.md`）。
+Dial actions use the `dialDown / dialUp / dialRotate / touchTap` events (see
+`events.md`).
 
-## States 数组
+## States array
 
-每个状态描述一种外观。普通动作 1 个状态；开/关型动作 2 个状态（用 `setState` 切换）。
+Each state describes one appearance. A normal action has 1 state; an on/off
+action has 2 states (switched with `setState`).
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `Image` | String | 该状态的背景图路径，72×72 png/svg |
-| `Title` | String | 默认标题文字 |
-| `ShowTitle` | Boolean | 是否显示标题，默认 `true` |
-| `TitleColor` | String | 标题颜色，如 `"#ffffff"` |
+| Field | Type | Description |
+|-------|------|-------------|
+| `Image` | String | background image path for this state, 72×72 png/svg |
+| `Title` | String | default title text |
+| `ShowTitle` | Boolean | whether to show the title, default `true` |
+| `TitleColor` | String | title color, e.g. `"#ffffff"` |
 | `TitleAlignment` | String | `"top"` / `"bottom"` / `"center"` |
-| `FontFamily` | String | 字体 |
+| `FontFamily` | String | font |
 | `FontStyle` | String | `"Regular"` / `"Bold"` / `"Italic"` / `"Bold Italic"` |
-| `FontSize` | String | 字号，如 `"12"` |
-| `FontUnderline` | Boolean | 是否下划线，默认 `false` |
+| `FontSize` | String | font size, e.g. `"12"` |
+| `FontUnderline` | Boolean | whether to underline, default `false` |
 
-> 若动作用 `setImage` 自绘整张画面（动态数字/图形），`States` 的字体类字段
-> （`FontSize/TitleColor/TitleAlignment`）基本无效，可保留默认值；同时建议把动作的
-> `UserTitleEnabled` 设为 `false`，避免用户自定义标题盖在自绘内容上。
+> If an action draws the whole image itself with `setImage` (dynamic
+> numbers/graphics), the font-related `States` fields
+> (`FontSize/TitleColor/TitleAlignment`) have basically no effect — leave them
+> at defaults. Also set the action's `UserTitleEnabled` to `false` so a
+> user-set title does not overlay the drawn content.
 
-## OS 数组
+## OS array
 
 ```json
 "OS": [
@@ -86,31 +92,33 @@
 ]
 ```
 
-`Platform` 取 `"windows"` 或 `"mac"`。
+`Platform` is `"windows"` or `"mac"`.
 
-## Software 对象
+## Software object
 
 ```json
 "Software": { "MinimumVersion": "3.10.188.226" }
 ```
 
-要用内置 Node，Windows 需 `3.10.188.226+`，macOS 需 `3.10.191.0421+`。
+To use the built-in Node, Windows needs `3.10.188.226+` and macOS needs
+`3.10.191.0421+`.
 
-## Nodejs 对象
+## Nodejs object
 
 ```json
 "Nodejs": { "Version": "20", "Debug": "--inspect=127.0.0.1:3210" }
 ```
 
-| 字段 | 说明 |
-|------|------|
-| `Version` | 目前仅支持 `"20"`（软件内置 Node 20.8.1） |
-| `Debug` | 可选，调试参数，如 `--inspect=127.0.0.1:3210` |
+| Field | Description |
+|-------|-------------|
+| `Version` | currently only `"20"` is supported (the app's built-in Node 20.8.1) |
+| `Debug` | optional debug arguments, e.g. `--inspect=127.0.0.1:3210` |
 
-声明 `Nodejs` 后，插件通过软件内置 Node 运行，无需自带 Node 运行时。
-**但 `ws`/`log4js` 等 npm 依赖仍需用 `npm run build` 打包进去。**
+When `Nodejs` is declared, the plugin runs through the app's built-in Node and
+need not bundle a Node runtime. **But npm dependencies such as `ws`/`log4js`
+still need to be bundled in with `npm run build`.**
 
-## ApplicationsToMonitor 对象
+## ApplicationsToMonitor object
 
 ```json
 "ApplicationsToMonitor": {
@@ -119,8 +127,10 @@
 }
 ```
 
-声明后，这些应用启动/退出会触发 `applicationDidLaunch` / `applicationDidTerminate` 事件。
+Once declared, launching/exiting these apps fires the `applicationDidLaunch` /
+`applicationDidTerminate` events.
 
-## 完整示例
+## Full example
 
-见模板 `assets/plugin-template/manifest.json`（单个 Keypad 动作）。
+See the template `assets/plugin-template/manifest.json` (a single Keypad
+action).

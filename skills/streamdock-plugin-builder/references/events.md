@@ -1,122 +1,129 @@
-# 事件参考
+# Event reference
 
-所有通信都是 JSON 消息。两个方向：**收到的事件**（软件 → 插件/PI）和
-**发送的事件**（插件/PI → 软件）。
-
----
-
-## 一、插件后端收到的事件
-
-后端用模板的 `Actions`/`Plugins` 接收（见 `sdk-api.md`），下面给出原始事件名与
-payload 关键字段。所有事件公共字段：`event`、多数还有 `action`、`context`。
-
-### 生命周期
-
-| 事件 | 触发时机 | payload 关键字段 |
-|------|----------|-----------------|
-| `willAppear` | 动作实例出现在设备上 | `settings`、`coordinates {column,row}`、`controller` |
-| `willDisappear` | 动作实例从设备上移除 | 同上 |
-| `titleParametersDidChange` | 用户改了标题或标题样式 | `title`、`titleParameters` |
-
-### 输入 — 普通按键
-
-| 事件 | 触发时机 | payload 关键字段 |
-|------|----------|-----------------|
-| `keyDown` | 按下按键 | `settings`、`coordinates`、`state`、`userDesiredState` |
-| `keyUp` | 松开按键（"点击"通常用这个） | 同上 |
-
-### 输入 — 旋钮 / 触摸屏（Knob/Encoder）
-
-| 事件 | 触发时机 | payload 关键字段 |
-|------|----------|-----------------|
-| `dialDown` | 按下旋钮 | `settings`、`controller` |
-| `dialUp` | 松开旋钮 | 同上 |
-| `dialRotate` | 旋转旋钮 | `ticks`（正=顺时针，负=逆时针）、`pressed`（旋转时是否按住） |
-| `touchTap` | 点触旋钮上方小屏 | `tapPos [x,y]`、`hold`（是否长按） |
-
-### 设置
-
-| 事件 | 触发时机 | payload 关键字段 |
-|------|----------|-----------------|
-| `didReceiveSettings` | 该动作实例的 settings 变化后 | `settings`、`coordinates` |
-| `didReceiveGlobalSettings` | 全局 settings 变化后 / 主动 `getGlobalSettings` 后 | `settings` |
-
-### Property Inspector 相关
-
-| 事件 | 触发时机 | payload |
-|------|----------|---------|
-| `propertyInspectorDidAppear` | 用户打开了某动作的配置页 | — |
-| `propertyInspectorDidDisappear` | 配置页关闭 | — |
-| `sendToPlugin` | PI 调用 `sendToPlugin` 发来数据 | 自定义 JSON |
-
-### 设备 / 系统
-
-| 事件 | 触发时机 | payload 关键字段 |
-|------|----------|-----------------|
-| `deviceDidConnect` | 接入设备 | `deviceInfo {name,type,size}` |
-| `deviceDidDisconnect` | 移除设备 | — |
-| `applicationDidLaunch` | 被监听的应用启动 | `payload.application` |
-| `applicationDidTerminate` | 被监听的应用退出 | `payload.application` |
-| `systemDidWakeUp` | 电脑唤醒 | — |
+All communication is JSON messages. Two directions: **received events**
+(app → plugin/PI) and **sent events** (plugin/PI → app).
 
 ---
 
-## 二、插件后端发送的事件
+## 1. Events the plugin backend receives
 
-模板的 `Plugins` 实例已封装成方法（见 `sdk-api.md`），下面给出底层 JSON。
+The backend receives them through the template's `Actions`/`Plugins` (see
+`sdk-api.md`). Below are the raw event names and the key payload fields. Common
+fields on every event: `event`; most also have `action` and `context`.
 
-| 事件 | 作用 | JSON |
-|------|------|------|
-| `setTitle` | 改按键标题 | `{event,context,payload:{title,target,state}}` |
-| `setImage` | 改按键图标 | `{event,context,payload:{image,target,state}}` |
-| `setState` | 切换多状态动作的状态 | `{event,context,payload:{state}}` |
-| `showAlert` | 按键上闪「⚠」 | `{event,context}` |
-| `showOk` | 按键上闪「✓」 | `{event,context}` |
-| `setSettings` | 持久化该动作实例的数据 | `{event,context,payload:{...}}` |
-| `getSettings` | 请求该动作实例的数据 | `{event,context}` |
-| `setGlobalSettings` | 持久化全局数据 | `{event,context,payload:{...}}` |
-| `getGlobalSettings` | 请求全局数据 | `{event,context}` |
-| `sendToPropertyInspector` | 给 PI 发数据 | `{event,action,context,payload:{...}}` |
-| `openUrl` | 默认浏览器打开网址 | `{event,payload:{url}}` |
-| `logMessage` | 写一条调试日志 | `{event,payload:{message}}` |
+### Lifecycle
 
-`target` 取值：`0`=软件+硬件，`1`=仅硬件，`2`=仅软件。`state` 为多状态动作的目标状态索引。
+| Event | Fires when | Key payload fields |
+|-------|------------|--------------------|
+| `willAppear` | an action instance appears on the device | `settings`, `coordinates {column,row}`, `controller` |
+| `willDisappear` | an action instance is removed from the device | same as above |
+| `titleParametersDidChange` | the user changed the title or its styling | `title`, `titleParameters` |
 
-> **协议事件 ≠ 已封装方法。** 上表是 StreamDock 协议层的事件。模板的 `Plugins`
-> 类把其中大部分封装成了同名方法（见 `sdk-api.md`），但**没有**封装
-> `getSettings`/`logMessage`。`getSettings` 通常用不到——`willAppear` 已带
-> `payload.settings`，之后变化走 `didReceiveSettings`。确实需要时自行发送：
-> `plugin.ws.send(JSON.stringify({ event: 'getSettings', context }))`。
+### Input — standard key
+
+| Event | Fires when | Key payload fields |
+|-------|------------|--------------------|
+| `keyDown` | the key is pressed | `settings`, `coordinates`, `state`, `userDesiredState` |
+| `keyUp` | the key is released ("click" usually uses this) | same as above |
+
+### Input — dial / touchscreen (Knob/Encoder)
+
+| Event | Fires when | Key payload fields |
+|-------|------------|--------------------|
+| `dialDown` | the dial is pressed | `settings`, `controller` |
+| `dialUp` | the dial is released | same as above |
+| `dialRotate` | the dial is rotated | `ticks` (positive = clockwise, negative = counter-clockwise), `pressed` (whether held while rotating) |
+| `touchTap` | the small screen above the dial is tapped | `tapPos [x,y]`, `hold` (whether a long press) |
+
+### Settings
+
+| Event | Fires when | Key payload fields |
+|-------|------------|--------------------|
+| `didReceiveSettings` | this action instance's settings changed | `settings`, `coordinates` |
+| `didReceiveGlobalSettings` | global settings changed / after an explicit `getGlobalSettings` | `settings` |
+
+### Property Inspector related
+
+| Event | Fires when | payload |
+|-------|------------|---------|
+| `propertyInspectorDidAppear` | the user opened an action's settings page | — |
+| `propertyInspectorDidDisappear` | the settings page closed | — |
+| `sendToPlugin` | the PI sent data via `sendToPlugin` | custom JSON |
+
+### Device / system
+
+| Event | Fires when | Key payload fields |
+|-------|------------|--------------------|
+| `deviceDidConnect` | a device is connected | `deviceInfo {name,type,size}` |
+| `deviceDidDisconnect` | a device is removed | — |
+| `applicationDidLaunch` | a monitored app launches | `payload.application` |
+| `applicationDidTerminate` | a monitored app exits | `payload.application` |
+| `systemDidWakeUp` | the computer wakes up | — |
 
 ---
 
-## 三、Property Inspector 收发的事件
+## 2. Events the plugin backend sends
 
-**PI 收到**（在 `index.js` 的 `$propEvent` 里处理）：
+The template's `Plugins` instance already wraps these as methods (see
+`sdk-api.md`); the raw JSON is below.
 
-| 事件 | 说明 |
-|------|------|
-| `didReceiveSettings` | 该动作实例的 settings |
-| `didReceiveGlobalSettings` | 全局 settings |
-| `sendToPropertyInspector` | 插件后端发来的数据 |
+| Event | Purpose | JSON |
+|-------|---------|------|
+| `setTitle` | change the key title | `{event,context,payload:{title,target,state}}` |
+| `setImage` | change the key icon | `{event,context,payload:{image,target,state}}` |
+| `setState` | switch a multi-state action's state | `{event,context,payload:{state}}` |
+| `showAlert` | flash a "⚠" on the key | `{event,context}` |
+| `showOk` | flash a "✓" on the key | `{event,context}` |
+| `setSettings` | persist this action instance's data | `{event,context,payload:{...}}` |
+| `getSettings` | request this action instance's data | `{event,context}` |
+| `setGlobalSettings` | persist global data | `{event,context,payload:{...}}` |
+| `getGlobalSettings` | request global data | `{event,context}` |
+| `sendToPropertyInspector` | send data to the PI | `{event,action,context,payload:{...}}` |
+| `openUrl` | open a URL in the default browser | `{event,payload:{url}}` |
+| `logMessage` | write a debug log line | `{event,payload:{message}}` |
 
-**PI 发送**（模板已封装到 `$websocket` / `$settings` 上）：
+`target` values: `0` = app + hardware, `1` = hardware only, `2` = app only.
+`state` is the target state index of a multi-state action.
 
-| 事件 | 作用 |
-|------|------|
-| `setSettings` | 持久化设置（给 `$settings.x` 赋值即自动触发，无需手动调用） |
-| `setGlobalSettings` / `getGlobalSettings` | 全局设置 |
-| `sendToPlugin` | 给插件后端发数据 |
-| `setTitle` / `setImage` / `setState` | 直接改按键外观 |
-| `openUrl` | 打开网址 |
+> **Protocol events ≠ wrapped methods.** The table above lists StreamDock
+> protocol-level events. The template's `Plugins` class wraps most of them as
+> same-named methods (see `sdk-api.md`), but does **not** wrap
+> `getSettings`/`logMessage`. `getSettings` is rarely needed — `willAppear`
+> already carries `payload.settings`, and later changes arrive via
+> `didReceiveSettings`. If you really need it, send it yourself:
+> `plugin.ws.send(JSON.stringify({ event: 'getSettings', context }))`.
 
 ---
 
-## 图像格式说明
+## 3. Events the Property Inspector sends and receives
 
-`setImage` 的 `image` 接受：
+**The PI receives** (handled in `$propEvent` inside `index.js`):
 
-- Base64 dataURL：`data:image/png;base64,...`
-- SVG dataURL：`` data:image/svg+xml;charset=utf8,${svg} `` （推荐，省去打包图片）
+| Event | Description |
+|-------|-------------|
+| `didReceiveSettings` | this action instance's settings |
+| `didReceiveGlobalSettings` | global settings |
+| `sendToPropertyInspector` | data sent from the plugin backend |
 
-按键画布约 144×144 像素。
+**The PI sends** (already wrapped onto `$websocket` / `$settings` by the
+template):
+
+| Event | Purpose |
+|-------|---------|
+| `setSettings` | persist settings (triggered automatically when you assign to `$settings.x`, no manual call needed) |
+| `setGlobalSettings` / `getGlobalSettings` | global settings |
+| `sendToPlugin` | send data to the plugin backend |
+| `setTitle` / `setImage` / `setState` | change the key appearance directly |
+| `openUrl` | open a URL |
+
+---
+
+## Image format notes
+
+`setImage`'s `image` accepts:
+
+- Base64 dataURL: `data:image/png;base64,...`
+- SVG dataURL: `` data:image/svg+xml;charset=utf8,${svg} `` (recommended — no
+  need to bundle an image file)
+
+The key canvas is about 144×144 pixels.

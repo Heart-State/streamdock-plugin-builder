@@ -1,93 +1,108 @@
-# 需求 → 能力 决策表
+# Requirement → capability decision table
 
-把用户的文字需求翻译成具体的 manifest 配置和后端代码选择。
+Translate the user's plain-text request into concrete manifest config and
+backend code choices.
 
-## 1. 这是什么硬件交互？
+## 1. What hardware interaction is this?
 
-| 用户描述里出现 | Controllers | 主要事件 |
-|----------------|-------------|----------|
-| 「按一下」「点击按钮」 | `["Keypad"]` | `keyUp`（或 `keyDown`） |
-| 「旋钮」「转动」「调节」「音量旋钮」 | `["Knob"]` | `dialRotate` `dialDown` `dialUp` |
-| 「旋钮上的小屏」「触摸屏」 | `["Knob"]` | `touchTap` + 上面那些 |
-| 「只显示信息，不用按」 | `["Information"]` | 仅 `_willAppear` + 定时刷新 |
+| Words in the user's description | Controllers | Main events |
+|---------------------------------|-------------|-------------|
+| "press", "click the button" | `["Keypad"]` | `keyUp` (or `keyDown`) |
+| "dial", "rotate", "adjust", "volume knob" | `["Knob"]` | `dialRotate` `dialDown` `dialUp` |
+| "the small screen on the dial", "touchscreen" | `["Knob"]` | `touchTap` + the ones above |
+| "just show info, no pressing" | `["Information"]` | only `_willAppear` + timed refresh |
 
-## 2. 按下后做什么？
+## 2. What happens on press?
 
-| 需求 | 实现 |
-|------|------|
-| 打开一个网页 | `plugin.openUrl(url)` |
-| 运行程序 / 执行命令行 | `require('child_process').exec(...)`（Node 子进程，可用任意 Node 能力） |
-| 模拟按键 / 快捷键 | 调系统命令或第三方库（如 Windows 用 `nircmd`、PowerShell） |
-| 调用 HTTP 接口 | `fetch`（Node 20 内置）或前端打包好的 `axios` |
-| 控制系统音量 / 亮度 | 调系统命令（平台相关），在 `keyUp` 里 `exec` |
-| 多状态开/关切换 | `manifest` 配 2 个 `States` + `plugin.setState(context, 0/1)` |
-| 计数 / 累加 | 存进 `settings`，`setSettings` 持久化 |
+| Requirement | Implementation |
+|-------------|----------------|
+| Open a web page | `plugin.openUrl(url)` |
+| Run a program / shell command | `require('child_process').exec(...)` (a Node child process — anything Node can do) |
+| Simulate a keypress / hotkey | call a system command or third-party tool (e.g. `nircmd` or PowerShell on Windows) |
+| Call an HTTP API | `fetch` (built into Node 20) or the bundled front-end `axios` |
+| Control system volume / brightness | call a system command (platform-specific), `exec` it inside `keyUp` |
+| Multi-state on/off toggle | configure 2 `States` in the `manifest` + `plugin.setState(context, 0/1)` |
+| Counting / accumulation | store in `settings`, persist with `setSettings` |
 
-> 后端是完整的 Node.js 环境，文件系统、网络、子进程都能用。复杂能力优先用
-> `child_process` 调系统命令或现成 CLI 工具。
+> The backend is a full Node.js environment — filesystem, network, child
+> processes are all available. For complex capabilities, prefer
+> `child_process` to call system commands or existing CLI tools.
 
-## 3. 按键上要显示什么？
+## 3. What does the key display?
 
-| 需求 | 实现 |
-|------|------|
-| 固定图标 | `manifest` 的 `States[].Image` 指向 `static/` 里的图 |
-| 一句简单纯文字（且不在意排版/颜色） | `plugin.setTitle(context, text)` |
-| 数字、时间、带颜色或排版的内容、图形 | 生成 SVG → `plugin.setImage(context, 'data:image/svg+xml;charset=utf8,'+svg)` |
-| 实时刷新（每秒更新） | `_willAppear` 里 `setInterval`，`_willDisappear` 里 `clearInterval` |
-| 不同状态不同图 | 多 `States` + `setState`，或直接 `setImage` 换图 |
+| Requirement | Implementation |
+|-------------|----------------|
+| Fixed icon | point `manifest`'s `States[].Image` at an image in `static/` |
+| One simple line of plain text (and you don't care about layout/color) | `plugin.setTitle(context, text)` |
+| Numbers, time, content with color or layout, graphics | generate SVG → `plugin.setImage(context, 'data:image/svg+xml;charset=utf8,'+svg)` |
+| Real-time refresh (update every second) | `setInterval` in `_willAppear`, `clearInterval` in `_willDisappear` |
+| Different image per state | multiple `States` + `setState`, or just swap the image with `setImage` |
 
-**setTitle vs setImage 如何选：**
+**How to choose setTitle vs setImage:**
 
-- `setTitle` 最省事，但样式受 `manifest` 里 `States[].FontSize/TitleColor/`
-  `TitleAlignment` 限制，且会和「用户自定义标题」冲突。仅适合一句简单文字。
-- 想完全掌控外观（颜色、字号、布局、图形、进度条）就用 `setImage` + SVG。
-  **本 skill 推荐：除最简单的纯文字外，动态显示一律用 SVG dataURL**——免打包
-  图片，画布约 144×144。
-- 用 `setImage` 自绘画面时，建议 `manifest` 里该动作设 `UserTitleEnabled: false`，
-  避免用户标题盖在你画的内容上；`States[].FontSize` 等字段此时无效，可保留默认。
-- SVG 里**不要用 `#` 十六进制颜色**（`#` 会被 data URL 当片段分隔符截断），
-  改用 `rgb(...)` 或颜色名。
-- StreamDock 的 SVG 渲染器只支持 **SVG Tiny 1.2 子集**：不支持 `<style>`/CSS、
-  滤镜、阴影、`paint-order` 等。完整可用/禁用清单见 `recipes.md` 的「SVG 渲染限制」。
+- `setTitle` is the least effort, but its styling is limited by
+  `States[].FontSize/TitleColor/TitleAlignment` in the `manifest`, and it
+  conflicts with a "user custom title." Only suitable for one simple line of
+  text.
+- To fully control the appearance (color, font size, layout, graphics, progress
+  bars), use `setImage` + SVG. **This skill recommends: for anything beyond the
+  simplest plain text, always use an SVG dataURL** — no image files to bundle,
+  canvas about 144×144.
+- When self-drawing with `setImage`, set the action's
+  `UserTitleEnabled: false` in the `manifest` so a user title does not overlay
+  your drawn content; `States[].FontSize` etc. have no effect then and can stay
+  at defaults.
+- **Do not use `#` hex colors in SVG** (`#` is treated as a fragment separator
+  by the data URL and truncates it); use `rgb(...)` or color names instead.
+- StreamDock's SVG renderer only supports the **SVG Tiny 1.2 subset**: no
+  `<style>`/CSS, filters, shadows, `paint-order`, etc. See the "SVG rendering
+  limits" section of `recipes.md` for the full allowed/forbidden list.
 
-## 4. 用户要配置什么？→ Property Inspector
+## 4. What does the user configure? → Property Inspector
 
-把用户描述里「可调的参数」列出来，每个参数 = PI 里一个表单控件 + 一个
-`settings` 字段：
+List the "adjustable parameters" from the user's description; each parameter =
+one form control in the PI + one `settings` key:
 
-| 参数性质 | 控件 |
-|----------|------|
-| 文本（URL、路径、消息） | `<input type="text">` |
-| 数字（间隔、阈值、音量） | `<input type="num">` |
-| 开关 | `<input type="checkbox">` |
-| 多选一（模式、设备） | `<select>` |
-| 选文件 | `<input type="file">` |
-| 多行文本 | `<textarea>` |
+| Parameter kind | Control |
+|----------------|---------|
+| Text (URL, path, message) | `<input type="text">` |
+| Number (interval, threshold, volume) | `<input type="num">` |
+| Toggle | `<input type="checkbox">` |
+| One-of-many (mode, device) | `<select>` |
+| Pick a file | `<input type="file">` |
+| Multi-line text | `<textarea>` |
 
-没有任何可配置参数 → 不做 PI（删 `PropertyInspectorPath`）。
+No adjustable parameters at all → no PI (remove `PropertyInspectorPath`).
 
-## 5. 需要几个 action？
+## 5. How many actions are needed?
 
-- 用户描述里有**几种不同行为的按键** = 几个 action。
-  例：「一个开始按钮、一个停止按钮、一个显示用时的按钮」= 3 个 action。
-- 行为相同、只是参数不同（如「打开不同网址」）= **1 个 action**，用 PI 配参数。
+- The number of **distinct key behaviors** in the user's description = the
+  number of actions. Example: "a start button, a stop button, a button showing
+  elapsed time" = 3 actions.
+- Same behavior, only different parameters (e.g. "open different URLs") = **1
+  action**, configured via the PI.
 
-## 6. 要不要定时 / 轮询？
+## 6. Timers / polling?
 
-| 需求 | 实现 |
-|------|------|
-| 按键显示需周期刷新（时钟、监控） | `_willAppear` 里 `setInterval`，按 `context` 存定时器，`_willDisappear` 清除 |
-| 周期性拉取远程数据 | 同上，回调里 `fetch` 后 `setImage/setTitle` |
+| Requirement | Implementation |
+|-------------|----------------|
+| The key display needs periodic refresh (clock, monitor) | `setInterval` in `_willAppear`, store the timer keyed by `context`, clear it in `_willDisappear` |
+| Periodically fetch remote data | same as above; in the callback, `fetch` then `setImage/setTitle` |
 
-**务必在 `_willDisappear` 清掉定时器**，否则按键移除后仍在跑、内存泄漏。
+**Always clear the timer in `_willDisappear`**, or it keeps running after the
+key is removed and leaks memory.
 
-## 7. 多语言？
+## 7. Localization?
 
-- 用户明确要多语言 → 见 `property-inspector.md` 的 `$local` 一节，补全 `<lang>.json`。
-- 没提 → 单语言，PI 设 `$local=false`，语言文件用英文兜底即可。
+- The user explicitly wants multi-language → see the `$local` section of
+  `property-inspector.md` and fill in every `<lang>.json`.
+- Not mentioned → single language; set `$local=false` in the PI and let the
+  language files use English fallback.
 
-## 信息不足时
+## When information is missing
 
-如果用户描述里**影响实现的关键点**缺失（硬件类型、按下的具体行为、要显示什么），
-且无法合理默认，再向用户提问。能默认的（图标用占位图、vendor 用 `com.example`、
-单语言）就默认并在交付时说明。
+If a **key point that affects implementation** is missing from the user's
+description (hardware type, the exact press behavior, what to display) and you
+cannot pick a sensible default, then ask the user. Anything you can default
+(placeholder icon, `com.example` as the vendor, single language) — default it
+and state so on delivery.
