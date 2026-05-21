@@ -4,7 +4,7 @@
 
 一个跨平台 **Agent Skill**：让 AI 智能体（Claude Code / Codex）根据用户的
 **文字需求**，从内置模板出发，开发一个完整、可安装的 **StreamDock**
-（Mirabox Stream Dock，Elgato Stream Deck 的兼容设备）插件。
+（Mirabox Stream Dock）插件。
 
 - 覆盖 `manifest.json`、Node.js 后端、Property Inspector、构建安装全流程
 - 内置完整可用的插件模板 + 9 份参考文档 + 常见场景代码片段

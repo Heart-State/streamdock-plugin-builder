@@ -4,8 +4,7 @@
 
 A cross-platform **Agent Skill** that lets AI agents (Claude Code / Codex) turn
 a user's **plain-text request** into a complete, installable **StreamDock**
-(Mirabox Stream Dock — an Elgato Stream Deck-compatible device) plugin, starting
-from a bundled template.
+(Mirabox Stream Dock) plugin, starting from a bundled template.
 
 - Covers the whole flow: `manifest.json`, the Node.js backend, the Property
   Inspector, building and installing
