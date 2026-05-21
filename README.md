@@ -21,45 +21,32 @@
 
 第一行把本仓库登记为插件市场，第二行从该市场安装插件。新开会话即生效。
 
-### Codex（插件市场）
+### Codex（skill-installer）
 
-Codex CLI v0.117.0+（2026-03）起支持插件。本仓库已带 `.codex-plugin/plugin.json`，
-在 Codex 里依次执行：
+Codex CLI 没有 `codex plugin` 这类命令；安装走 Codex **内置的 `skill-installer`
+技能**（开箱即带）。在 Codex 会话里直接用自然语言说：
 
-```
-codex plugin marketplace add Heart-State/streamdock-plugin-builder
-/plugins
-```
+> 用 skill-installer 安装 `Heart-State/streamdock-plugin-builder` 仓库里的
+> `skills/streamdock-plugin-builder`
 
-第一行把本仓库登记为插件市场源，第二行打开插件目录、选中
-`streamdock-plugin-builder` 安装。新开会话即生效。
+Codex 会调用官方脚本把 skill 装进 `~/.codex/skills/`。装完**重启 Codex**生效。
 
-### Codex（一条命令，旧版本兜底）
-
-若 Codex 版本低于 v0.117.0、没有插件市场命令，用安装脚本直接把 skill
-复制进 `~/.codex/skills/`：
-
-**macOS / Linux：**
+也可以不进会话，直接跑官方安装脚本（`skill-installer` 随 Codex 预装）：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Heart-State/streamdock-plugin-builder/main/scripts/install-codex.sh | bash
+python "~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py" \
+  --repo Heart-State/streamdock-plugin-builder \
+  --path skills/streamdock-plugin-builder
 ```
 
-**Windows（PowerShell）：**
-
-```powershell
-irm https://raw.githubusercontent.com/Heart-State/streamdock-plugin-builder/main/scripts/install-codex.ps1 | iex
-```
-
-脚本会 `git clone` 本仓库并把 `skills/streamdock-plugin-builder/` 复制到
-`~/.codex/skills/`。重启 Codex 或新开会话即生效。
+> 该脚本若目标目录已存在会中止；要重装请先删 `~/.codex/skills/streamdock-plugin-builder`。
 
 ### 手动安装（任意智能体）
 
 把本仓库 `skills/streamdock-plugin-builder/` 文件夹整个复制到对应目录：
 
-- Claude Code：`~/.claude/skills/`
-- Codex：`~/.codex/skills/`
+- Claude Code：`~/.claude/skills/streamdock-plugin-builder/`
+- Codex：`~/.codex/skills/streamdock-plugin-builder/`
 
 ## 用法
 
@@ -79,15 +66,12 @@ streamdock-plugin-builder/
 │   └── plugin.json           # Claude Code 插件清单
 ├── .codex-plugin/
 │   └── plugin.json           # Codex 插件清单
-├── skills/
-│   └── streamdock-plugin-builder/
-│       ├── SKILL.md          # 技能主文件（智能体入口）
-│       ├── references/       # 9 份参考文档
-│       └── assets/
-│           └── plugin-template/   # 完整可用的插件模板
-└── scripts/
-    ├── install-codex.sh      # Codex 安装脚本（macOS/Linux 旧版本兜底）
-    └── install-codex.ps1     # Codex 安装脚本（Windows 旧版本兜底）
+└── skills/
+    └── streamdock-plugin-builder/
+        ├── SKILL.md          # 技能主文件（智能体入口）
+        ├── references/       # 9 份参考文档
+        └── assets/
+            └── plugin-template/   # 完整可用的插件模板
 ```
 
 两个智能体共用 `skills/streamdock-plugin-builder/`；`.claude-plugin/` 与
