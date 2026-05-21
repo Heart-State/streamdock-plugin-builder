@@ -1,0 +1,11 @@
+{
+  "name": "streamdock-plugin-builder",
+  "description": "Build StreamDock (Mirabox Stream Dock) plugins from a plain-text description: manifest.json, the Node.js plugin backend, keypad/dial action handlers, and the Property Inspector settings UI.",
+  "version": "1.0.0",
+  "author": { "name": "Heart-State" },
+  "license": "MIT",
+  "homepage": "https://github.com/Heart-State/streamdock-plugin-builder",
+  "repository": "https://github.com/Heart-State/streamdock-plugin-builder",
+  "keywords": ["streamdock", "stream-deck", "mirabox", "plugin", "property-inspector"],
+  "skills": ["./skills/streamdock-plugin-builder"]
+}
