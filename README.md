@@ -23,23 +23,13 @@
 
 ### Codex（skill-installer）
 
-Codex CLI 没有 `codex plugin` 这类命令；安装走 Codex **内置的 `skill-installer`
-技能**（开箱即带）。在 Codex 会话里直接用自然语言说：
+在 CodeX 里执行：
 
-> 用 skill-installer 安装 `Heart-State/streamdock-plugin-builder` 仓库里的
-> `skills/streamdock-plugin-builder`
-
-Codex 会调用官方脚本把 skill 装进 `~/.codex/skills/`。装完**重启 Codex**生效。
-
-也可以不进会话，直接跑官方安装脚本（`skill-installer` 随 Codex 预装）：
-
-```bash
-python "~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py" \
-  --repo Heart-State/streamdock-plugin-builder \
-  --path skills/streamdock-plugin-builder
+```
+$skill-installer install https://github.com/Heart-State/streamdock-plugin-builder/tree/main/skills/streamdock-plugin-builder
 ```
 
-> 该脚本若目标目录已存在会中止；要重装请先删 `~/.codex/skills/streamdock-plugin-builder`。
+Codex 会调用官方脚本把 skill 装进 `~/.codex/skills/`。装完**重启 Codex**生效。
 
 ### 手动安装（任意智能体）
 
