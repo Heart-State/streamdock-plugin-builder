@@ -160,7 +160,8 @@ delivery.
 | Defining `willAppear` instead of `_willAppear` | overrides the SDK interceptor, `this.data` stops working |
 | Shipping without `npm run build` | the app's built-in Node cannot find `ws`; the plugin fails to start |
 | `setImage` given a non-existent image path | blank key; use an SVG dataURL or verify the `static/` path |
-| SVG uses `#` colors / filters / CSS or other advanced features | blank key; StreamDock only supports SVG Tiny 1.2, see `references/recipes.md` |
+| SVG dataURL not URL-encoded | blank key; the app URL-decodes the dataURL once, so wrap the SVG in `encodeURIComponent(svg)` |
+| SVG uses filters / CSS / shadows or other advanced features | blank key; StreamDock only supports SVG Tiny 1.2, see `references/recipes.md` |
 | Forgetting to tell the user to restart StreamDock | plugin does not appear / does not update; the app must be restarted after a build |
 | PI text has `$local=true` but a language file is missing keys | the UI shows "undefined"; fill in the keys or set `$local=false` |
 | Folder name is not in `com.*.sdPlugin` form | the app does not recognize the plugin |

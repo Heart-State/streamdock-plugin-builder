@@ -15,15 +15,17 @@ plugin.didReceiveGlobalSettings = ({ payload: { settings } }) => {
 
 // ───────────────── Helpers ─────────────────
 // Render a number into an SVG image used as the key background (no image files to bundle).
-// Note: do not use # hex colors in SVG (# is treated as a fragment separator by the
-// data URL and truncates it); use rgb(...) or color names (white/black, etc.).
+// IMPORTANT: URL-encode the SVG with encodeURIComponent before putting it in the data URI.
+// StreamDock runs ONE URL-decode on the value it receives, so a raw '#', '%', '<' or space
+// would be mis-decoded and the key renders blank. With proper encoding, '#' hex colors work
+// fine too (rgb(...) / color names are equally fine).
 const renderCount = (n) => {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144">
         <rect width="144" height="144" fill="rgb(30,30,46)"/>
         <text x="72" y="92" font-family="Arial" font-size="64" font-weight="bold"
               fill="rgb(255,255,255)" text-anchor="middle">${n}</text>
     </svg>`;
-    return `data:image/svg+xml;charset=utf8,${svg}`;
+    return `data:image/svg+xml;charset=utf8,${encodeURIComponent(svg)}`;
 };
 
 // ───────────────── Action: counter ─────────────────

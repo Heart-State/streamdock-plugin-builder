@@ -37,9 +37,11 @@ broken SVG usually shows up as a **blank key**. Follow these rules:
 - `paint-order` and other SVG 2 features, web fonts, external resource
   references
 
-**Colors**: use `rgb(...)` or color names (`white`/`black`…), **not `#` hex** —
-`#` is treated as a fragment separator by the data URL and truncates the whole
-SVG.
+**Encoding**: always URL-encode the SVG with `encodeURIComponent(svg)` before
+putting it in the data URI. StreamDock runs one URL-decode on the value it
+receives, so a raw `#`, `%`, `<`, or space would otherwise be mis-decoded and
+the key renders blank. With proper encoding, `#` hex colors, `rgb(...)`, and
+color names all render correctly.
 
 When you need complex visual effects, generate a PNG on the Node side with a
 library (convert it to a base64 dataURL for `setImage`) instead of relying on
@@ -118,11 +120,13 @@ plugin.toggle = new Actions({
 
 ```js
 const timers = {};
-// Don't use # hex colors in SVG (# is truncated by the data URL); use rgb(...) or color names.
-const clockSvg = (t) => `data:image/svg+xml;charset=utf8,` +
-    `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144">` +
-    `<rect width="144" height="144" fill="black"/>` +
-    `<text x="72" y="85" font-size="30" fill="rgb(0,255,0)" text-anchor="middle">${t}</text></svg>`;
+// URL-encode the SVG: StreamDock runs one URL-decode on the data URI value.
+const clockSvg = (t) => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144">` +
+        `<rect width="144" height="144" fill="black"/>` +
+        `<text x="72" y="85" font-size="30" fill="rgb(0,255,0)" text-anchor="middle">${t}</text></svg>`;
+    return `data:image/svg+xml;charset=utf8,` + encodeURIComponent(svg);
+};
 
 plugin.clock = new Actions({
     _willAppear({ context }) {
@@ -237,10 +241,10 @@ const remain = {};                        // context -> remaining seconds
 const mmss = (s) => {
     const m = String(Math.floor(s / 60)).padStart(2, '0');
     const ss = String(s % 60).padStart(2, '0');
-    return `data:image/svg+xml;charset=utf8,` +
-        `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144">` +
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144">` +
         `<rect width="144" height="144" fill="rgb(20,20,30)"/>` +
         `<text x="72" y="88" font-size="40" fill="white" text-anchor="middle">${m}:${ss}</text></svg>`;
+    return `data:image/svg+xml;charset=utf8,` + encodeURIComponent(svg);   // URL-encode: app decodes once
 };
 
 plugin.timer = new Actions({
@@ -289,8 +293,9 @@ plugin.timer = new Actions({
 - The first argument is always `context` when operating on a specific key.
 - Every `setInterval` must be `clearInterval`'d in `_willDisappear`; store
   timers keyed by `context`.
-- Prefer SVG dataURLs for dynamic visuals; in SVG use `rgb(...)`/color names,
-  **not `#` hex**.
+- Prefer SVG dataURLs for dynamic visuals; **URL-encode the SVG with
+  `encodeURIComponent`** before putting it in the data URI (the app decodes it
+  once).
 - `settings` holds user config only; keep runtime state (timing, remaining
   values) in module-level variables, not in `settings`.
 - Changed settings only persist if you call `setSettings`.

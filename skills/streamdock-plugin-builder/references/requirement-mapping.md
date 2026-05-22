@@ -34,7 +34,7 @@ backend code choices.
 |-------------|----------------|
 | Fixed icon | point `manifest`'s `States[].Image` at an image in `static/` |
 | One simple line of plain text (and you don't care about layout/color) | `plugin.setTitle(context, text)` |
-| Numbers, time, content with color or layout, graphics | generate SVG → `plugin.setImage(context, 'data:image/svg+xml;charset=utf8,'+svg)` |
+| Numbers, time, content with color or layout, graphics | generate SVG → `plugin.setImage(context, 'data:image/svg+xml;charset=utf8,'+encodeURIComponent(svg))` |
 | Real-time refresh (update every second) | `setInterval` in `_willAppear`, `clearInterval` in `_willDisappear` |
 | Different image per state | multiple `States` + `setState`, or just swap the image with `setImage` |
 
@@ -52,8 +52,9 @@ backend code choices.
   `UserTitleEnabled: false` in the `manifest` so a user title does not overlay
   your drawn content; `States[].FontSize` etc. have no effect then and can stay
   at defaults.
-- **Do not use `#` hex colors in SVG** (`#` is treated as a fragment separator
-  by the data URL and truncates it); use `rgb(...)` or color names instead.
+- **URL-encode the SVG** with `encodeURIComponent(svg)` before putting it in the
+  data URI — StreamDock runs one URL-decode on the value, so a raw `#`/`%`/`<`/
+  space would otherwise be mis-decoded and the key renders blank.
 - StreamDock's SVG renderer only supports the **SVG Tiny 1.2 subset**: no
   `<style>`/CSS, filters, shadows, `paint-order`, etc. See the "SVG rendering
   limits" section of `recipes.md` for the full allowed/forbidden list.

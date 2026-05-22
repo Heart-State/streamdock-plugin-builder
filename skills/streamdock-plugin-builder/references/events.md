@@ -123,7 +123,8 @@ template):
 `setImage`'s `image` accepts:
 
 - Base64 dataURL: `data:image/png;base64,...`
-- SVG dataURL: `` data:image/svg+xml;charset=utf8,${svg} `` (recommended — no
-  need to bundle an image file)
+- SVG dataURL: `` data:image/svg+xml;charset=utf8,${encodeURIComponent(svg)} ``
+  (recommended — no image file to bundle). URL-encode the SVG: StreamDock runs
+  one URL-decode on the value it receives.
 
 The key canvas is about 144×144 pixels.
